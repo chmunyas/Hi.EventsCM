@@ -23,6 +23,7 @@ class DuplicateEventDataDTO extends BaseDTO
         public bool    $duplicateAffiliates = true,
         public ?string $description = null,
         public ?string $endDate = null,
+        public ?int    $dateShiftDays = null,
     )
     {
     }

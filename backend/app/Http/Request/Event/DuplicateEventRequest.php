@@ -24,6 +24,7 @@ class DuplicateEventRequest extends BaseRequest
             'duplicate_webhooks' => ['boolean', 'required'],
             'duplicate_affiliates' => ['boolean', 'required'],
             'duplicate_ticket_logo' => ['boolean', 'required'],
+            'date_shift_days' => ['nullable', 'integer', 'min:-3650', 'max:3650'],
         ];
 
         return array_merge($eventValidations, $duplicateValidations);

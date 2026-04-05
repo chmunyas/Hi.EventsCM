@@ -406,6 +406,20 @@ export interface EventSettings {
     venue_longitude?: number | null;
     show_map_on_event_page?: boolean;
     maps_embed_type?: string;
+
+    // Low-capacity alert settings
+    low_capacity_alerts_enabled?: boolean;
+    low_capacity_alert_sent_thresholds?: Record<string, number[]> | null;
+
+    // Invoice customization settings
+    invoice_hide_tax_details?: boolean;
+    invoice_show_fees_separately?: boolean;
+    invoice_custom_label?: string | null;
+    invoice_company_info?: string | null;
+
+    // Waitlist auto-offer settings
+    waitlist_auto_offer_seats?: number | null;
+    waitlist_auto_offer_delay_minutes?: number | null;
 }
 
 export interface VenueAddress {
@@ -437,6 +451,7 @@ export interface EventDuplicatePayload extends EventBase {
     duplicate_ticket_logo: boolean;
     duplicate_webhooks: boolean;
     duplicate_affiliates: boolean;
+    date_shift_days?: number | null;
 }
 
 export enum EventStatus {
@@ -475,6 +490,7 @@ export interface Event extends EventBase {
     location_details?: VenueAddress;
     statistics?: EventStatistics;
     has_promo_codes?: boolean;
+    tags?: string[] | null;
 }
 
 export interface EventStatistics {

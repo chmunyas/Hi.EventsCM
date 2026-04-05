@@ -41,6 +41,7 @@ class DuplicateEventAction extends BaseAction
             duplicateAffiliates: $request->validated('duplicate_affiliates'),
             description: $request->validated('description'),
             endDate: $request->validated('end_date'),
+            dateShiftDays: $request->validated('date_shift_days'),
         ));
 
         return $this->resourceResponse(EventResource::class, $event);

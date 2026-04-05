@@ -104,6 +104,14 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     final public const VENUE_LONGITUDE = 'venue_longitude';
     final public const SHOW_MAP_ON_EVENT_PAGE = 'show_map_on_event_page';
     final public const MAPS_EMBED_TYPE = 'maps_embed_type';
+    final public const LOW_CAPACITY_ALERTS_ENABLED = 'low_capacity_alerts_enabled';
+    final public const LOW_CAPACITY_ALERT_SENT_THRESHOLDS = 'low_capacity_alert_sent_thresholds';
+    final public const INVOICE_HIDE_TAX_DETAILS = 'invoice_hide_tax_details';
+    final public const INVOICE_SHOW_FEES_SEPARATELY = 'invoice_show_fees_separately';
+    final public const INVOICE_CUSTOM_LABEL = 'invoice_custom_label';
+    final public const INVOICE_COMPANY_INFO = 'invoice_company_info';
+    final public const WAITLIST_AUTO_OFFER_SEATS = 'waitlist_auto_offer_seats';
+    final public const WAITLIST_AUTO_OFFER_DELAY_MINUTES = 'waitlist_auto_offer_delay_minutes';
 
     protected int $id;
     protected int $event_id;
@@ -199,6 +207,14 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     protected ?float $venue_longitude = null;
     protected bool $show_map_on_event_page = false;
     protected string $maps_embed_type = 'static';
+    protected bool $low_capacity_alerts_enabled = false;
+    protected array|string|null $low_capacity_alert_sent_thresholds = null;
+    protected bool $invoice_hide_tax_details = false;
+    protected bool $invoice_show_fees_separately = false;
+    protected ?string $invoice_custom_label = null;
+    protected ?string $invoice_company_info = null;
+    protected ?int $waitlist_auto_offer_seats = null;
+    protected ?int $waitlist_auto_offer_delay_minutes = 5;
 
     public function toArray(): array
     {
@@ -297,6 +313,14 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
                     'venue_longitude' => $this->venue_longitude ?? null,
                     'show_map_on_event_page' => $this->show_map_on_event_page ?? false,
                     'maps_embed_type' => $this->maps_embed_type ?? 'static',
+                    'low_capacity_alerts_enabled' => $this->low_capacity_alerts_enabled ?? false,
+                    'low_capacity_alert_sent_thresholds' => $this->low_capacity_alert_sent_thresholds ?? null,
+                    'invoice_hide_tax_details' => $this->invoice_hide_tax_details ?? false,
+                    'invoice_show_fees_separately' => $this->invoice_show_fees_separately ?? false,
+                    'invoice_custom_label' => $this->invoice_custom_label ?? null,
+                    'invoice_company_info' => $this->invoice_company_info ?? null,
+                    'waitlist_auto_offer_seats' => $this->waitlist_auto_offer_seats ?? null,
+                    'waitlist_auto_offer_delay_minutes' => $this->waitlist_auto_offer_delay_minutes ?? 5,
                 ];
     }
 
@@ -1333,5 +1357,93 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     public function getMapsEmbedType(): string
     {
         return $this->maps_embed_type;
+    }
+
+    public function setLowCapacityAlertsEnabled(bool $low_capacity_alerts_enabled): self
+    {
+        $this->low_capacity_alerts_enabled = $low_capacity_alerts_enabled;
+        return $this;
+    }
+
+    public function getLowCapacityAlertsEnabled(): bool
+    {
+        return $this->low_capacity_alerts_enabled;
+    }
+
+    public function setLowCapacityAlertSentThresholds(array|string|null $low_capacity_alert_sent_thresholds): self
+    {
+        $this->low_capacity_alert_sent_thresholds = $low_capacity_alert_sent_thresholds;
+        return $this;
+    }
+
+    public function getLowCapacityAlertSentThresholds(): array|string|null
+    {
+        return $this->low_capacity_alert_sent_thresholds;
+    }
+
+    public function setInvoiceHideTaxDetails(bool $invoice_hide_tax_details): self
+    {
+        $this->invoice_hide_tax_details = $invoice_hide_tax_details;
+        return $this;
+    }
+
+    public function getInvoiceHideTaxDetails(): bool
+    {
+        return $this->invoice_hide_tax_details;
+    }
+
+    public function setInvoiceShowFeesSeparately(bool $invoice_show_fees_separately): self
+    {
+        $this->invoice_show_fees_separately = $invoice_show_fees_separately;
+        return $this;
+    }
+
+    public function getInvoiceShowFeesSeparately(): bool
+    {
+        return $this->invoice_show_fees_separately;
+    }
+
+    public function setInvoiceCustomLabel(?string $invoice_custom_label): self
+    {
+        $this->invoice_custom_label = $invoice_custom_label;
+        return $this;
+    }
+
+    public function getInvoiceCustomLabel(): ?string
+    {
+        return $this->invoice_custom_label;
+    }
+
+    public function setInvoiceCompanyInfo(?string $invoice_company_info): self
+    {
+        $this->invoice_company_info = $invoice_company_info;
+        return $this;
+    }
+
+    public function getInvoiceCompanyInfo(): ?string
+    {
+        return $this->invoice_company_info;
+    }
+
+    public function setWaitlistAutoOfferSeats(?int $waitlist_auto_offer_seats): self
+    {
+        $this->waitlist_auto_offer_seats = $waitlist_auto_offer_seats;
+        return $this;
+    }
+
+    public function getWaitlistAutoOfferSeats(): ?int
+    {
+        return $this->waitlist_auto_offer_seats;
+    }
+
+    public function setWaitlistAutoOfferDelayMinutes(?int $waitlist_auto_offer_delay_minutes): self
+    {
+        $this->waitlist_auto_offer_delay_minutes = $waitlist_auto_offer_delay_minutes;
+        return $this;
+    }
+
+    public function getWaitlistAutoOfferDelayMinutes(): ?int
+    {
+        return $this->waitlist_auto_offer_delay_minutes;
     }
 }

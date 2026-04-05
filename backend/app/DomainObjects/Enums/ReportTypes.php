@@ -10,4 +10,9 @@ enum ReportTypes: string
     case DAILY_SALES_REPORT = 'daily_sales_report';
     case PROMO_CODES_REPORT = 'promo_codes_report';
     case ATTENDEES_BY_PRODUCT = 'attendees_by_product';
+    case CAPACITY_UTILIZATION = 'capacity_utilization';
+    case REFUND_ANALYTICS = 'refund_analytics';
+    case CHECK_IN_BY_PRODUCT = 'check_in_by_product';
+    case QUESTION_RESPONSE_ANALYTICS = 'question_response_analytics';
+    case REVENUE_BY_DISCOUNT = 'revenue_by_discount';
 }

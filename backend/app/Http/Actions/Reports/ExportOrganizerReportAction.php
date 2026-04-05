@@ -135,6 +135,17 @@ class ExportOrganizerReportAction extends BaseAction
                 'Check-in Rate (%)',
                 'Check-in Lists Count',
             ],
+            OrganizerReportTypes::AFFILIATE_PAYOUT->value => [
+                'Affiliate ID',
+                'Affiliate Name',
+                'Affiliate Code',
+                'Event Name',
+                'Total Orders',
+                'Total Revenue',
+                'Commission Rate (%)',
+                'Commission Earned',
+                'Currency',
+            ],
             default => [],
         };
     }
@@ -198,6 +209,17 @@ class ExportOrganizerReportAction extends BaseAction
                 $row->total_checked_in ?? 0,
                 $row->check_in_rate ?? 0,
                 $row->check_in_lists_count ?? 0,
+            ],
+            OrganizerReportTypes::AFFILIATE_PAYOUT->value => [
+                $row->affiliate_id ?? '',
+                $row->affiliate_name ?? '',
+                $row->affiliate_code ?? '',
+                $row->event_name ?? '',
+                $row->total_orders ?? 0,
+                $row->total_revenue ?? 0,
+                $row->commission_rate ?? 0,
+                $row->commission_earned ?? 0,
+                $row->currency ?? '',
             ],
             default => [],
         };

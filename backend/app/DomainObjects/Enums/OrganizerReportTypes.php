@@ -11,4 +11,5 @@ enum OrganizerReportTypes: string
     case TAX_SUMMARY = 'tax_summary';
     case CHECK_IN_SUMMARY = 'check_in_summary';
     case PLATFORM_FEES = 'platform_fees';
+    case AFFILIATE_PAYOUT = 'affiliate_payout';
 }

@@ -177,9 +177,15 @@ use HiEvents\Http\Actions\Questions\GetQuestionAction;
 use HiEvents\Http\Actions\Questions\GetQuestionsAction;
 use HiEvents\Http\Actions\Questions\GetQuestionsPublicAction;
 use HiEvents\Http\Actions\Questions\SortQuestionsAction;
+use HiEvents\Http\Actions\Reports\ExportEventReportAction;
 use HiEvents\Http\Actions\Reports\ExportOrganizerReportAction;
 use HiEvents\Http\Actions\Reports\GetOrganizerReportAction;
 use HiEvents\Http\Actions\Reports\GetReportAction;
+use HiEvents\Http\Actions\Attendees\BulkUpdateAttendeesAction;
+use HiEvents\Http\Actions\Events\Stats\GetAttendeeEngagementAction;
+use HiEvents\Http\Actions\Events\GetEventsByTagPublicAction;
+use HiEvents\Http\Actions\Events\UpdateEventSlugAction;
+use HiEvents\Http\Actions\Organizers\Stats\GetOrganizerBenchmarkAction;
 use HiEvents\Http\Actions\Sitemap\GetSitemapEventsAction;
 use HiEvents\Http\Actions\Sitemap\GetSitemapIndexAction;
 use HiEvents\Http\Actions\Sitemap\GetSitemapOrganizersAction;
@@ -341,6 +347,9 @@ $router->middleware(['auth:api'])->group(
         $router->patch('/organizers/{organizer_id}/settings', PartialUpdateOrganizerSettingsAction::class);
         $router->get('/organizers/{organizer_id}/reports/{report_type}', GetOrganizerReportAction::class);
         $router->get('/organizers/{organizer_id}/reports/{report_type}/export', ExportOrganizerReportAction::class);
+
+        // Organizer Benchmarking
+        $router->get('/organizers/{organizer_id}/benchmark', GetOrganizerBenchmarkAction::class);
         $router->post('/organizers/{organizer_id}/webhooks', CreateOrganizerWebhookAction::class);
         $router->get('/organizers/{organizer_id}/webhooks', GetOrganizerWebhooksAction::class);
         $router->put('/organizers/{organizer_id}/webhooks/{webhook_id}', EditOrganizerWebhookAction::class);
@@ -515,6 +524,16 @@ $router->middleware(['auth:api'])->group(
 
         // Reports
         $router->get('/events/{event_id}/reports/{report_type}', GetReportAction::class);
+        $router->get('/events/{event_id}/reports/{report_type}/export', ExportEventReportAction::class);
+
+        // Attendee Engagement
+        $router->get('/events/{event_id}/stats/engagement', GetAttendeeEngagementAction::class);
+
+        // Bulk Attendee Update
+        $router->post('/events/{event_id}/attendees/bulk-update', BulkUpdateAttendeesAction::class);
+
+        // Custom Event Slug
+        $router->put('/events/{event_id}/slug', UpdateEventSlugAction::class);
 
         // Waitlist
         $router->get('/events/{event_id}/waitlist', GetWaitlistEntriesAction::class);
@@ -605,6 +624,7 @@ $router->prefix('/public')->group(
     function (Router $router): void {
         // Events
         $router->get('/events', GetEventsPublicAction::class);
+        $router->get('/events/discover', GetEventsByTagPublicAction::class);
         $router->get('/events/{event_id}', GetEventPublicAction::class);
         $router->post('/events/{event_id}/verify-password', VerifyEventPasswordAction::class);
         $router->post('/events/{event_id}/verify-access', ValidatePrivateEventAccessAction::class);

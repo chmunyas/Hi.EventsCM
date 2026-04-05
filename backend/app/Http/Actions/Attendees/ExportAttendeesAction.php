@@ -15,6 +15,7 @@ use HiEvents\Http\Actions\BaseAction;
 use HiEvents\Repository\Eloquent\Value\Relationship;
 use HiEvents\Repository\Interfaces\AttendeeRepositoryInterface;
 use HiEvents\Repository\Interfaces\QuestionRepositoryInterface;
+use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -31,7 +32,7 @@ class ExportAttendeesAction extends BaseAction
     /**
      * @todo This should be passed off to a queue and moved to a service
      */
-    public function __invoke(int $eventId): BinaryFileResponse
+    public function __invoke(Request $request, int $eventId): BinaryFileResponse
     {
         $this->isActionAuthorized($eventId, EventDomainObject::class);
 
@@ -67,6 +68,25 @@ class ExportAttendeesAction extends BaseAction
             ))
             ->findByEventIdForExport($eventId);
 
+        // Apply optional filters
+        if ($request->filled('product_id')) {
+            $productId = (int) $request->input('product_id');
+            $attendees = $attendees->filter(fn($a) => $a->getProductId() === $productId);
+        }
+
+        if ($request->filled('check_in_status')) {
+            $checkInStatus = $request->input('check_in_status');
+            $attendees = $attendees->filter(function ($a) use ($checkInStatus) {
+                $hasCheckIns = $a->getCheckIns() && count($a->getCheckIns()) > 0;
+                return $checkInStatus === 'checked_in' ? $hasCheckIns : !$hasCheckIns;
+            });
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->input('status');
+            $attendees = $attendees->filter(fn($a) => $a->getStatus() === $status);
+        }
+
         $productQuestions = $this->questionRepository->findWhere([
             'event_id' => $eventId,
             'belongs_to' => QuestionBelongsTo::PRODUCT->name,
@@ -77,9 +97,18 @@ class ExportAttendeesAction extends BaseAction
             'belongs_to' => QuestionBelongsTo::ORDER->name,
         ]);
 
+        $filename = 'attendees';
+        if ($request->filled('product_id')) {
+            $filename .= '_product_' . $request->input('product_id');
+        }
+        if ($request->filled('check_in_status')) {
+            $filename .= '_' . $request->input('check_in_status');
+        }
+        $filename .= '.xlsx';
+
         return Excel::download(
-            $this->export->withData($attendees, $productQuestions, $orderQuestions),
-            'attendees.xlsx'
+            $this->export->withData($attendees->values(), $productQuestions, $orderQuestions),
+            $filename
         );
     }
 }
