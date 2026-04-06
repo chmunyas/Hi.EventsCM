@@ -21,7 +21,7 @@ class ClosePosSessionAction extends BaseAction
     {
         $this->isActionAuthorized($eventId, EventDomainObject::class);
 
-        $session = $this->posSessionRepository->updateWhere(
+        $this->posSessionRepository->updateWhere(
             attributes: [
                 'status' => 'closed',
                 'closed_at' => now(),
@@ -31,6 +31,8 @@ class ClosePosSessionAction extends BaseAction
                 'event_id' => $eventId,
             ],
         );
+
+        $session = $this->posSessionRepository->findById($sessionId);
 
         return $this->jsonResponse($session->toArray());
     }
