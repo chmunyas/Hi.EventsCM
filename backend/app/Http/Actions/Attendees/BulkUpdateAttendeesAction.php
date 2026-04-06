@@ -48,6 +48,12 @@ class BulkUpdateAttendeesAction extends BaseAction
                     ['status' => AttendeeStatus::CANCELLED->name]
                 );
                 $updated++;
+            } elseif ($action === 'check_in') {
+                $this->attendeeRepository->updateWhere(
+                    ['id' => $attendeeId],
+                    ['checked_in_at' => now()]
+                );
+                $updated++;
             }
         }
 
