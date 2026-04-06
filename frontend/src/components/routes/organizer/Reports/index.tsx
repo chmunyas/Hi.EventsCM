@@ -1,7 +1,7 @@
 import {PageTitle} from "../../../common/PageTitle";
 import {t} from "@lingui/macro";
 import {PageBody} from "../../../common/PageBody";
-import {IconChartBar, IconChevronRight, IconReceipt, IconReceiptTax, IconReportMoney, IconUserCheck} from "@tabler/icons-react";
+import {IconChartBar, IconChevronRight, IconReceipt, IconReceiptTax, IconReportMoney, IconUserCheck, IconUsers} from "@tabler/icons-react";
 import classes from './Reports.module.scss';
 import {Card} from "../../../common/Card";
 import {Avatar, UnstyledButton} from "@mantine/core";
@@ -41,6 +41,12 @@ const OrganizerReports = () => {
             title: t`Platform Fees`,
             description: t`Hi.Events platform fees and VAT breakdown by transaction`,
             icon: <Avatar size={40} color={'#E67C63'}><IconReceipt/></Avatar>
+        },
+        {
+            id: OrganizerReportTypes.AffiliatePayout,
+            title: t`Affiliate Payout`,
+            description: t`Affiliate sales, commissions, and payout breakdown`,
+            icon: <Avatar size={40} color={'#8B5CF6'}><IconUsers/></Avatar>
         }
     ];
 

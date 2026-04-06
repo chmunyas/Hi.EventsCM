@@ -73,6 +73,7 @@ class DuplicateEventService
         bool    $duplicateAffiliates = true,
         ?string $description = null,
         ?string $endDate = null,
+        ?int    $dateShiftDays = null,
     ): EventDomainObject
     {
         try {
@@ -104,6 +105,7 @@ class DuplicateEventService
                     duplicatePromoCodes: $duplicatePromoCodes,
                     duplicateCapacityAssignments: $duplicateCapacityAssignments,
                     duplicateCheckInLists: $duplicateCheckInLists,
+                    dateShiftDays: $dateShiftDays,
                 );
             } else {
                 $this->createProductCategoryService->createDefaultProductCategory($newEvent);
@@ -170,6 +172,7 @@ class DuplicateEventService
         bool              $duplicatePromoCodes,
         bool              $duplicateCapacityAssignments,
         bool              $duplicateCheckInLists,
+        ?int              $dateShiftDays = null,
     ): void
     {
         $oldProductToNewProductMap = [];
@@ -188,6 +191,20 @@ class DuplicateEventService
             foreach ($productCategory->getProducts() as $product) {
                 $product->setEventId($newEventId);
                 $product->setProductCategoryId($newCategory->getId());
+
+                if ($dateShiftDays !== null) {
+                    if ($product->getSaleStartDate()) {
+                        $product->setSaleStartDate(
+                            \Carbon\Carbon::parse($product->getSaleStartDate())->addDays($dateShiftDays)->toDateTimeString()
+                        );
+                    }
+                    if ($product->getSaleEndDate()) {
+                        $product->setSaleEndDate(
+                            \Carbon\Carbon::parse($product->getSaleEndDate())->addDays($dateShiftDays)->toDateTimeString()
+                        );
+                    }
+                }
+
                 $newProduct = $this->createProductService->createProduct(
                     product: $product,
                     accountId: $event->getAccountId(),
@@ -329,12 +346,15 @@ class DuplicateEventService
                     ?->toArray() ?? [],
             );
 
+            $expiresAt = $checkInList->getExpiresAt();
+            $activatesAt = $checkInList->getActivatesAt();
+
             $this->createCheckInListService->createCheckInList(
                 checkInList: (new CheckInListDomainObject())
                     ->setName($checkInList->getName())
                     ->setDescription($checkInList->getDescription())
-                    ->setExpiresAt($checkInList->getExpiresAt())
-                    ->setActivatesAt($checkInList->getActivatesAt())
+                    ->setExpiresAt($expiresAt)
+                    ->setActivatesAt($activatesAt)
                     ->setEventId($newEventId),
                 productIds: $mappedProductIds,
             );

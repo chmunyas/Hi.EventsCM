@@ -5,9 +5,12 @@ namespace HiEvents\Services\Domain\Report\Factory;
 use HiEvents\DomainObjects\Enums\ReportTypes;
 use HiEvents\Services\Domain\Report\AbstractReportService;
 use HiEvents\Services\Domain\Report\Reports\AttendeesByProductReport;
+use HiEvents\Services\Domain\Report\Reports\AttendeeGeographicReport;
 use HiEvents\Services\Domain\Report\Reports\CapacityUtilizationReport;
 use HiEvents\Services\Domain\Report\Reports\CheckInByProductReport;
 use HiEvents\Services\Domain\Report\Reports\DailySalesReport;
+use HiEvents\Services\Domain\Report\Reports\PaymentMethodRevenueReport;
+use HiEvents\Services\Domain\Report\Reports\ProductCategoryPerformanceReport;
 use HiEvents\Services\Domain\Report\Reports\ProductSalesReport;
 use HiEvents\Services\Domain\Report\Reports\PromoCodesReport;
 use HiEvents\Services\Domain\Report\Reports\QuestionResponseAnalyticsReport;
@@ -29,6 +32,9 @@ class ReportServiceFactory
             ReportTypes::CHECK_IN_BY_PRODUCT => App::make(CheckInByProductReport::class),
             ReportTypes::QUESTION_RESPONSE_ANALYTICS => App::make(QuestionResponseAnalyticsReport::class),
             ReportTypes::REVENUE_BY_DISCOUNT => App::make(RevenueByDiscountReport::class),
+            ReportTypes::PAYMENT_METHOD_REVENUE => App::make(PaymentMethodRevenueReport::class),
+            ReportTypes::PRODUCT_CATEGORY_PERFORMANCE => App::make(ProductCategoryPerformanceReport::class),
+            ReportTypes::ATTENDEE_GEOGRAPHIC => App::make(AttendeeGeographicReport::class),
         };
     }
 }

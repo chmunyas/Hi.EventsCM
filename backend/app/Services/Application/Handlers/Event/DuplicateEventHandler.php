@@ -37,6 +37,7 @@ class DuplicateEventHandler
             duplicateAffiliates: $data->duplicateAffiliates,
             description: $data->description,
             endDate: $data->endDate,
+            dateShiftDays: $data->dateShiftDays,
         );
     }
 }

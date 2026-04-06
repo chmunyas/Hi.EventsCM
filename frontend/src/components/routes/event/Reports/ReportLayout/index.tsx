@@ -6,6 +6,14 @@ import ProductSalesReport from "../ProductSalesReport";
 import {ReportTypes} from "../../../../../types.ts";
 import {DailySalesReport} from "../DailySalesReport";
 import PromoCodesReport from "../PromoCodesReport";
+import CapacityUtilizationReport from "../CapacityUtilizationReport";
+import RefundAnalyticsReport from "../RefundAnalyticsReport";
+import CheckInByProductReport from "../CheckInByProductReport";
+import QuestionResponseAnalyticsReport from "../QuestionResponseAnalyticsReport";
+import RevenueByDiscountReport from "../RevenueByDiscountReport";
+import PaymentMethodRevenueReport from "../PaymentMethodRevenueReport";
+import ProductCategoryPerformanceReport from "../ProductCategoryPerformanceReport";
+import AttendeeGeographicReport from "../AttendeeGeographicReport";
 
 const renderReport = (reportType: string) => {
     switch (reportType) {
@@ -15,6 +23,22 @@ const renderReport = (reportType: string) => {
             return <DailySalesReport/>;
         case ReportTypes.PromoCodes:
             return <PromoCodesReport/>;
+        case ReportTypes.CapacityUtilization:
+            return <CapacityUtilizationReport/>;
+        case ReportTypes.RefundAnalytics:
+            return <RefundAnalyticsReport/>;
+        case ReportTypes.CheckInByProduct:
+            return <CheckInByProductReport/>;
+        case ReportTypes.QuestionResponseAnalytics:
+            return <QuestionResponseAnalyticsReport/>;
+        case ReportTypes.RevenueByDiscount:
+            return <RevenueByDiscountReport/>;
+        case ReportTypes.PaymentMethodRevenue:
+            return <PaymentMethodRevenueReport/>;
+        case ReportTypes.ProductCategoryPerformance:
+            return <ProductCategoryPerformanceReport/>;
+        case ReportTypes.AttendeeGeographic:
+            return <AttendeeGeographicReport/>;
         default:
             return <div>Report not found</div>;
     }

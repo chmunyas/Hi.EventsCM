@@ -8,6 +8,7 @@ use HiEvents\DomainObjects\ProductDomainObject;
 use HiEvents\DomainObjects\ProductPriceDomainObject;
 use HiEvents\DomainObjects\Status\EventStatus;
 use HiEvents\Repository\Interfaces\EventRepositoryInterface;
+use HiEvents\Repository\Interfaces\EventSettingsRepositoryInterface;
 use HiEvents\Repository\Interfaces\PromoCodeRepositoryInterface;
 use HiEvents\Repository\Interfaces\ProductRepositoryInterface;
 use HiEvents\Services\Domain\Order\OrderCreateRequestValidationService;
@@ -25,6 +26,7 @@ class OrderCreateRequestValidationServiceTest extends TestCase
     private ProductRepositoryInterface|MockInterface $productRepository;
     private PromoCodeRepositoryInterface|MockInterface $promoCodeRepository;
     private EventRepositoryInterface|MockInterface $eventRepository;
+    private EventSettingsRepositoryInterface|MockInterface $eventSettingsRepository;
     private AvailableProductQuantitiesFetchService|MockInterface $availabilityService;
     private OrderCreateRequestValidationService $service;
 
@@ -35,12 +37,14 @@ class OrderCreateRequestValidationServiceTest extends TestCase
         $this->productRepository = Mockery::mock(ProductRepositoryInterface::class);
         $this->promoCodeRepository = Mockery::mock(PromoCodeRepositoryInterface::class);
         $this->eventRepository = Mockery::mock(EventRepositoryInterface::class);
+        $this->eventSettingsRepository = Mockery::mock(EventSettingsRepositoryInterface::class);
         $this->availabilityService = Mockery::mock(AvailableProductQuantitiesFetchService::class);
 
         $this->service = new OrderCreateRequestValidationService(
             $this->productRepository,
             $this->promoCodeRepository,
             $this->eventRepository,
+            $this->eventSettingsRepository,
             $this->availabilityService,
         );
     }
@@ -164,6 +168,8 @@ class OrderCreateRequestValidationServiceTest extends TestCase
         $event->shouldReceive('getCurrency')->andReturn('USD');
 
         $this->eventRepository->shouldReceive('findById')->with($eventId)->andReturn($event);
+
+        $this->eventSettingsRepository->shouldReceive('findFirstWhere')->andReturn(null);
 
         $productPrices = new Collection();
         foreach ($priceIds as $i => $priceId) {

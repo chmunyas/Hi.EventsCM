@@ -128,6 +128,7 @@ use HiEvents\Http\Actions\Orders\Public\GetOrderActionPublic;
 use HiEvents\Http\Actions\Orders\Public\TransitionOrderToOfflinePaymentPublicAction;
 use HiEvents\Http\Actions\Orders\ResendOrderConfirmationAction;
 use HiEvents\Http\Actions\Organizers\CreateOrganizerAction;
+use HiEvents\Http\Actions\SelfService\CancelOrderPublicAction;
 use HiEvents\Http\Actions\SelfService\EditAttendeePublicAction;
 use HiEvents\Http\Actions\SelfService\EditOrderPublicAction;
 use HiEvents\Http\Actions\SelfService\ResendAttendeeTicketPublicAction;
@@ -183,6 +184,11 @@ use HiEvents\Http\Actions\Reports\GetOrganizerReportAction;
 use HiEvents\Http\Actions\Reports\GetReportAction;
 use HiEvents\Http\Actions\Attendees\BulkUpdateAttendeesAction;
 use HiEvents\Http\Actions\Events\Stats\GetAttendeeEngagementAction;
+use HiEvents\Http\Actions\Events\Stats\GetCheckoutFunnelAction;
+use HiEvents\Http\Actions\Events\BulkUpdateEventStatusAction;
+use HiEvents\Http\Actions\Attendees\GetAttendeeJourneyAction;
+use HiEvents\Http\Actions\PromoCodes\ExportPromoCodesAction;
+use HiEvents\Http\Actions\Organizers\GetOrganizerAuditLogAction;
 use HiEvents\Http\Actions\Events\GetEventsByTagPublicAction;
 use HiEvents\Http\Actions\Events\UpdateEventSlugAction;
 use HiEvents\Http\Actions\Organizers\Stats\GetOrganizerBenchmarkAction;
@@ -350,6 +356,7 @@ $router->middleware(['auth:api'])->group(
 
         // Organizer Benchmarking
         $router->get('/organizers/{organizer_id}/benchmark', GetOrganizerBenchmarkAction::class);
+        $router->get('/organizers/{organizer_id}/audit-log', GetOrganizerAuditLogAction::class);
         $router->post('/organizers/{organizer_id}/webhooks', CreateOrganizerWebhookAction::class);
         $router->get('/organizers/{organizer_id}/webhooks', GetOrganizerWebhooksAction::class);
         $router->put('/organizers/{organizer_id}/webhooks/{webhook_id}', EditOrganizerWebhookAction::class);
@@ -457,6 +464,7 @@ $router->middleware(['auth:api'])->group(
         $router->get('/events/{event_id}/promo-codes', GetPromoCodesAction::class);
         $router->get('/events/{event_id}/promo-codes/{promo_code_id}', GetPromoCodeAction::class);
         $router->delete('/events/{event_id}/promo-codes/{promo_code_id}', DeletePromoCodeAction::class);
+        $router->post('/events/{event_id}/promo-codes/export', ExportPromoCodesAction::class);
 
         // Site-wide Vouchers
         $router->post('/vouchers', \HiEvents\Http\Actions\Vouchers\CreateSiteWideVoucherAction::class);
@@ -526,11 +534,24 @@ $router->middleware(['auth:api'])->group(
         $router->get('/events/{event_id}/reports/{report_type}', GetReportAction::class);
         $router->get('/events/{event_id}/reports/{report_type}/export', ExportEventReportAction::class);
 
+        // Saved Report Presets
+        $router->post('/events/{event_id}/report-presets', \HiEvents\Http\Actions\ReportPresets\CreateReportPresetAction::class);
+        $router->get('/events/{event_id}/report-presets', \HiEvents\Http\Actions\ReportPresets\GetReportPresetsAction::class);
+        $router->delete('/events/{event_id}/report-presets/{preset_id}', \HiEvents\Http\Actions\ReportPresets\DeleteReportPresetAction::class);
+
         // Attendee Engagement
         $router->get('/events/{event_id}/stats/engagement', GetAttendeeEngagementAction::class);
+        $router->get('/events/{event_id}/stats/checkout-funnel', GetCheckoutFunnelAction::class);
+        $router->get('/events/{event_id}/attendees/{attendee_id}/journey', GetAttendeeJourneyAction::class);
+
+        // Bulk Event Status Update
+        $router->post('/events/bulk-status', BulkUpdateEventStatusAction::class);
 
         // Bulk Attendee Update
         $router->post('/events/{event_id}/attendees/bulk-update', BulkUpdateAttendeesAction::class);
+
+        // Badge Generation
+        $router->post('/events/{event_id}/badges/generate', \HiEvents\Http\Actions\Attendees\GenerateBadgesAction::class);
 
         // Custom Event Slug
         $router->put('/events/{event_id}/slug', UpdateEventSlugAction::class);
@@ -540,6 +561,16 @@ $router->middleware(['auth:api'])->group(
         $router->get('/events/{event_id}/waitlist/stats', GetWaitlistStatsAction::class);
         $router->post('/events/{event_id}/waitlist/offer-next', OfferWaitlistEntryAction::class);
         $router->delete('/events/{event_id}/waitlist/{entry_id}', CancelWaitlistEntryAction::class);
+
+        // Event Series / Recurring Events
+        $router->post('/events/{event_id}/series', \HiEvents\Http\Actions\EventSeries\CreateEventSeriesAction::class);
+        $router->get('/events/{event_id}/series', \HiEvents\Http\Actions\EventSeries\GetEventSeriesAction::class);
+        $router->put('/events/{event_id}/occurrences/{occurrence_id}', \HiEvents\Http\Actions\EventSeries\UpdateOccurrenceAction::class);
+        $router->post('/events/{event_id}/occurrences/{occurrence_id}/cancel', \HiEvents\Http\Actions\EventSeries\CancelOccurrenceAction::class);
+
+        // Tracking / Analytics Integrations
+        $router->put('/events/{event_id}/tracking-integrations', \HiEvents\Http\Actions\Tracking\UpdateTrackingIntegrationsAction::class);
+        $router->get('/events/{event_id}/tracking-integrations', \HiEvents\Http\Actions\Tracking\GetTrackingIntegrationsAction::class);
 
         // Seating Charts
         $router->post('/events/{event_id}/seating-charts', \HiEvents\Http\Actions\SeatingCharts\CreateSeatingChartAction::class);
@@ -565,6 +596,7 @@ $router->middleware(['auth:api'])->group(
         $router->post('/events/{event_id}/pos-sessions', \HiEvents\Http\Actions\Pos\OpenPosSessionAction::class);
         $router->get('/events/{event_id}/pos-sessions', \HiEvents\Http\Actions\Pos\GetPosSessionsAction::class);
         $router->post('/events/{event_id}/pos-sessions/{session_id}/close', \HiEvents\Http\Actions\Pos\ClosePosSessionAction::class);
+        $router->get('/events/{event_id}/pos-sessions/{session_id}/summary', \HiEvents\Http\Actions\Pos\GetPosSessionSummaryAction::class);
         $router->post('/events/{event_id}/pos-sessions/{session_id}/transactions', \HiEvents\Http\Actions\Pos\CreatePosTransactionAction::class);
         $router->post('/events/{event_id}/pos/stripe-terminal-token', \HiEvents\Http\Actions\Pos\CreateStripeTerminalConnectionTokenAction::class);
 
@@ -668,11 +700,19 @@ $router->prefix('/public')->group(
         // Certificates
         $router->get('/events/{event_id}/attendees/{attendee_short_id}/certificate', \HiEvents\Http\Actions\Certificates\DownloadCertificateAction::class);
 
+        // Wallet Passes (public)
+        $router->get('/events/{event_id}/attendees/{attendee_short_id}/wallet-pass', \HiEvents\Http\Actions\Attendees\GetAttendeeWalletPassPublicAction::class);
+
         // Product Bundles (public)
         $router->get('/events/{event_id}/bundles', \HiEvents\Http\Actions\ProductBundles\GetProductBundlesPublicAction::class);
 
+        // Event Occurrences (public)
+        $router->get('/events/{event_id}/occurrences', \HiEvents\Http\Actions\EventSeries\GetOccurrencesPublicAction::class);
+
         // Seating Charts (public)
         $router->get('/events/{event_id}/seating-charts/{seating_chart_id}/availability', \HiEvents\Http\Actions\SeatingCharts\GetSeatAvailabilityPublicAction::class);
+        $router->post('/events/{event_id}/seating-charts/{seating_chart_id}/seats/{seat_id}/hold', \HiEvents\Http\Actions\SeatingCharts\HoldSeatPublicAction::class);
+        $router->delete('/events/{event_id}/seating-charts/{seating_chart_id}/seats/{seat_id}/hold', \HiEvents\Http\Actions\SeatingCharts\ReleaseSeatHoldPublicAction::class);
 
         // Gift Cards (public)
         $router->post('/gift-cards/redeem', \HiEvents\Http\Actions\GiftCards\RedeemGiftCardPublicAction::class);
@@ -717,6 +757,7 @@ $router->prefix('/public')->group(
         // Self-service order and attendee edits
         $router->prefix('/events/{event_id}/order/{order_short_id}')->group(function (Router $router): void {
             $router->patch('/', EditOrderPublicAction::class)->middleware('throttle:self-service-edit');
+            $router->post('/cancel', CancelOrderPublicAction::class)->middleware('throttle:self-service-edit');
             $router->post('/resend-confirmation', ResendOrderConfirmationPublicAction::class)->middleware('throttle:self-service-email');
 
             $router->patch('/attendees/{attendee_short_id}', EditAttendeePublicAction::class)->middleware('throttle:self-service-edit');

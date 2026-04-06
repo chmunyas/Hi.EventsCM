@@ -45,7 +45,7 @@ class GetPublicEventHandlerTest extends TestCase
         $event->setProductCategories(collect());
 
         $this->setupEventRepositoryMock($event, $data->eventId);
-        $this->promoCodeRepository->shouldReceive('findFirstWhere')->once()->andReturnNull();
+        $this->promoCodeRepository->shouldReceive('findFirstWhere')->twice()->andReturnNull();
         $this->ticketFilterService->shouldReceive('filter')->once()->withAnyArgs()->andReturn(collect());
         $this->eventPageViewIncrementService->shouldReceive('increment')->once()->with($data->eventId, $data->ipAddress);
 
@@ -61,7 +61,7 @@ class GetPublicEventHandlerTest extends TestCase
         $promoCode->shouldReceive('isValid')->andReturn(false);
 
         $this->setupEventRepositoryMock($event, $data->eventId);
-        $this->promoCodeRepository->shouldReceive('findFirstWhere')->once()->andReturn($promoCode);
+        $this->promoCodeRepository->shouldReceive('findFirstWhere')->twice()->andReturn($promoCode);
         $this->ticketFilterService->shouldReceive('filter')->once()->withAnyArgs()->andReturn(collect());
         $this->eventPageViewIncrementService->shouldReceive('increment')->once()->with($data->eventId, $data->ipAddress);
 
@@ -77,7 +77,7 @@ class GetPublicEventHandlerTest extends TestCase
         $promoCode->shouldReceive('isValid')->andReturn(true);
 
         $this->setupEventRepositoryMock($event, $data->eventId);
-        $this->promoCodeRepository->shouldReceive('findFirstWhere')->once()->andReturn($promoCode);
+        $this->promoCodeRepository->shouldReceive('findFirstWhere')->twice()->andReturn($promoCode);
         $this->ticketFilterService->shouldReceive('filter')->once()->withAnyArgs()->andReturn(collect());
         $this->eventPageViewIncrementService->shouldReceive('increment')->once()->with($data->eventId, $data->ipAddress);
 

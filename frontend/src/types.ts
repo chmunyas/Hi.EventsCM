@@ -1128,6 +1128,15 @@ export enum ReportTypes {
     ProductSales = 'product_sales',
     DailySales = 'daily_sales_report',
     PromoCodes = 'promo_codes_report',
+    AttendeesByProduct = 'attendees_by_product',
+    CapacityUtilization = 'capacity_utilization',
+    RefundAnalytics = 'refund_analytics',
+    CheckInByProduct = 'check_in_by_product',
+    QuestionResponseAnalytics = 'question_response_analytics',
+    RevenueByDiscount = 'revenue_by_discount',
+    PaymentMethodRevenue = 'payment_method_revenue',
+    ProductCategoryPerformance = 'product_category_performance',
+    AttendeeGeographic = 'attendee_geographic',
 }
 
 export enum OrganizerReportTypes {
@@ -1136,6 +1145,7 @@ export enum OrganizerReportTypes {
     TaxSummary = 'tax_summary',
     CheckInSummary = 'check_in_summary',
     PlatformFees = 'platform_fees',
+    AffiliatePayout = 'affiliate_payout',
 }
 
 export interface Webhook {

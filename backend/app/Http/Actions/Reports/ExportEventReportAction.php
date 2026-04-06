@@ -100,6 +100,18 @@ class ExportEventReportAction extends BaseAction
                 'Discount Type', 'Order Count', 'Gross Revenue', 'Net Before Additions',
                 'Total Refunded', 'Total Tax', 'Total Fee', 'Currency',
             ],
+            ReportTypes::PAYMENT_METHOD_REVENUE->value => [
+                'Payment Method', 'Order Count', 'Gross Revenue', 'Net Revenue',
+                'Total Tax', 'Total Fee', 'Total Refunded', 'Currency',
+            ],
+            ReportTypes::PRODUCT_CATEGORY_PERFORMANCE->value => [
+                'Category', 'Product Count', 'Total Sold', 'Gross Revenue',
+                'Total Tax', 'Total Fees', 'Avg Price', 'Currency',
+            ],
+            ReportTypes::ATTENDEE_GEOGRAPHIC->value => [
+                'Country', 'City', 'State/Region', 'Order Count',
+                'Attendee Count', 'Total Revenue', 'Currency',
+            ],
             default => ['Data'],
         };
     }

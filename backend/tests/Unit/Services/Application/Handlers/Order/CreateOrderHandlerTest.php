@@ -208,6 +208,7 @@ class CreateOrderHandlerTest extends TestCase
 
         $orderItems = collect([Mockery::mock(OrderItemDomainObject::class)]);
         $this->orderItemProcessingService->shouldReceive('process')->andReturn($orderItems);
+        $this->orderItemProcessingService->shouldReceive('getPerOrderTaxesAndFees')->andReturn(collect());
 
         $this->orderManagementService->shouldReceive('updateOrderTotals')->andReturn($order);
     }

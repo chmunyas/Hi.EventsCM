@@ -19,7 +19,9 @@ use HiEvents\Repository\Eloquent\CheckInListRepository;
 use HiEvents\Repository\Eloquent\DocumentTemplateRepository;
 use HiEvents\Repository\Eloquent\EmailTemplateRepository;
 use HiEvents\Repository\Eloquent\EventDailyStatisticRepository;
+use HiEvents\Repository\Eloquent\EventOccurrenceRepository;
 use HiEvents\Repository\Eloquent\EventRepository;
+use HiEvents\Repository\Eloquent\EventSeriesRepository;
 use HiEvents\Repository\Eloquent\EventSettingsRepository;
 use HiEvents\Repository\Eloquent\EventStatisticRepository;
 use HiEvents\Repository\Eloquent\EventSubscriberRepository;
@@ -27,6 +29,7 @@ use HiEvents\Repository\Eloquent\GiftCardRepository;
 use HiEvents\Repository\Eloquent\MembershipPlanRepository;
 use HiEvents\Repository\Eloquent\MembershipRepository;
 use HiEvents\Repository\Eloquent\PosSessionRepository;
+use HiEvents\Repository\Eloquent\ReportPresetRepository;
 use HiEvents\Repository\Eloquent\SeatingChartRepository;
 use HiEvents\Repository\Eloquent\SeatRepository;
 use HiEvents\Repository\Eloquent\ImageRepository;
@@ -75,7 +78,9 @@ use HiEvents\Repository\Interfaces\CheckInListRepositoryInterface;
 use HiEvents\Repository\Interfaces\DocumentTemplateRepositoryInterface;
 use HiEvents\Repository\Interfaces\EmailTemplateRepositoryInterface;
 use HiEvents\Repository\Interfaces\EventDailyStatisticRepositoryInterface;
+use HiEvents\Repository\Interfaces\EventOccurrenceRepositoryInterface;
 use HiEvents\Repository\Interfaces\EventRepositoryInterface;
+use HiEvents\Repository\Interfaces\EventSeriesRepositoryInterface;
 use HiEvents\Repository\Interfaces\EventSettingsRepositoryInterface;
 use HiEvents\Repository\Interfaces\EventStatisticRepositoryInterface;
 use HiEvents\Repository\Interfaces\EventSubscriberRepositoryInterface;
@@ -83,6 +88,7 @@ use HiEvents\Repository\Interfaces\GiftCardRepositoryInterface;
 use HiEvents\Repository\Interfaces\MembershipPlanRepositoryInterface;
 use HiEvents\Repository\Interfaces\MembershipRepositoryInterface;
 use HiEvents\Repository\Interfaces\PosSessionRepositoryInterface;
+use HiEvents\Repository\Interfaces\ReportPresetRepositoryInterface;
 use HiEvents\Repository\Interfaces\SeatingChartRepositoryInterface;
 use HiEvents\Repository\Interfaces\SeatRepositoryInterface;
 use HiEvents\Repository\Interfaces\ImageRepositoryInterface;
@@ -180,6 +186,9 @@ class RepositoryServiceProvider extends ServiceProvider
         MembershipPlanRepositoryInterface::class => MembershipPlanRepository::class,
         MembershipRepositoryInterface::class => MembershipRepository::class,
         PosSessionRepositoryInterface::class => PosSessionRepository::class,
+        EventSeriesRepositoryInterface::class => EventSeriesRepository::class,
+        EventOccurrenceRepositoryInterface::class => EventOccurrenceRepository::class,
+        ReportPresetRepositoryInterface::class => ReportPresetRepository::class,
     ];
 
     public function register(): void
