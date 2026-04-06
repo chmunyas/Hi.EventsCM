@@ -164,6 +164,16 @@ managed option with zero setup, automatic updates, and managed infrastructure.
 
 <br>
 
+## Product Planning
+
+For roadmap and backlog planning in this fork, see:
+
+- [`docs/PRODUCT_ROADMAP_2026.md`](docs/PRODUCT_ROADMAP_2026.md) — ranked roadmap and feature backlog
+- [`docs/GITHUB_PROJECT_BOARD_TEMPLATE.md`](docs/GITHUB_PROJECT_BOARD_TEMPLATE.md) — recommended GitHub Projects structure
+- [`GITHUB_ENHANCEMENT_REPORT_2026.md`](GITHUB_ENHANCEMENT_REPORT_2026.md) — detailed enhancement write-up
+
+<br>
+
 ## Contributing
 
 We welcome contributions. See the [contributing guide](CONTRIBUTING.md) for details.
