@@ -29,13 +29,15 @@ class UpdateGiftCardAction extends BaseAction
             'expires_at' => 'nullable|date|after:now',
         ]);
 
-        $card = $this->giftCardRepository->updateWhere(
+        $this->giftCardRepository->updateWhere(
             attributes: $validated,
             where: [
                 'id' => $giftCardId,
                 'account_id' => $this->getAuthenticatedAccountId(),
             ],
         );
+
+        $card = $this->giftCardRepository->findById($giftCardId);
 
         return $this->jsonResponse($card->toArray());
     }

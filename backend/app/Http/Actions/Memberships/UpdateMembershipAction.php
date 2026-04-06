@@ -28,7 +28,7 @@ class UpdateMembershipAction extends BaseAction
             'notes' => 'nullable|string|max:5000',
         ]);
 
-        $membership = $this->membershipRepository->updateWhere(
+        $this->membershipRepository->updateWhere(
             attributes: $validated,
             where: [
                 'id' => $membershipId,
@@ -36,6 +36,8 @@ class UpdateMembershipAction extends BaseAction
                 'account_id' => $this->getAuthenticatedAccountId(),
             ],
         );
+
+        $membership = $this->membershipRepository->findById($membershipId);
 
         return $this->jsonResponse($membership->toArray());
     }

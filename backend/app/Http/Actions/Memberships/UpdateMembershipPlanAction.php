@@ -34,7 +34,7 @@ class UpdateMembershipPlanAction extends BaseAction
             'status' => 'string|in:active,inactive,archived',
         ]);
 
-        $plan = $this->membershipPlanRepository->updateWhere(
+        $this->membershipPlanRepository->updateWhere(
             attributes: $validated,
             where: [
                 'id' => $planId,
@@ -42,6 +42,8 @@ class UpdateMembershipPlanAction extends BaseAction
                 'account_id' => $this->getAuthenticatedAccountId(),
             ],
         );
+
+        $plan = $this->membershipPlanRepository->findById($planId);
 
         return $this->jsonResponse($plan->toArray());
     }
