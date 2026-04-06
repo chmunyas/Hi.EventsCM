@@ -64,6 +64,19 @@ return [
         'key_id' => env('APPLE_OAUTH_KEY_ID'),
     ],
 
+    'apple_wallet' => [
+        'pass_type_id' => env('APPLE_WALLET_PASS_TYPE_ID', 'pass.com.hievents.ticket'),
+        'team_id' => env('APPLE_WALLET_TEAM_ID', ''),
+        'certificate_path' => env('APPLE_WALLET_CERTIFICATE_PATH', ''),
+        'certificate_password' => env('APPLE_WALLET_CERTIFICATE_PASSWORD', ''),
+    ],
+
+    'google_wallet' => [
+        'issuer_id' => env('GOOGLE_WALLET_ISSUER_ID', ''),
+        'service_account_email' => env('GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL', ''),
+        'service_account_key_path' => env('GOOGLE_WALLET_SERVICE_ACCOUNT_KEY_PATH', ''),
+    ],
+
     'auth' => [
         'oauth_enabled' => env('OAUTH_ENABLED', false),
         'google_enabled' => env('GOOGLE_OAUTH_ENABLED', false),

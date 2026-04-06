@@ -86,7 +86,7 @@ class GoogleWalletPassService
             'ticketType' => [
                 'defaultValue' => [
                     'language' => 'en-US',
-                    'value' => $attendee->getProductTitle() ?? 'General Admission',
+                    'value' => $attendee->getProduct()?->getTitle() ?? 'General Admission',
                 ],
             ],
         ];

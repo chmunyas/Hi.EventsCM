@@ -79,7 +79,7 @@ class AppleWalletPassService
                     [
                         'key' => 'ticket-type',
                         'label' => 'TICKET',
-                        'value' => $attendee->getProductTitle() ?? 'General Admission',
+                        'value' => $attendee->getProduct()?->getTitle() ?? 'General Admission',
                     ],
                 ],
                 'auxiliaryFields' => [
