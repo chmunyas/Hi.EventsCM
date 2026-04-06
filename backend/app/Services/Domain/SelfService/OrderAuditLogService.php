@@ -57,6 +57,28 @@ class OrderAuditLogService
         ]);
     }
 
+    public function logOrderSelfCancelled(
+        OrderDomainObject $order,
+        array $oldValues,
+        array $newValues,
+        string $ipAddress,
+        ?string $userAgent
+    ): void {
+        $changedFields = array_keys($newValues);
+
+        $this->orderAuditLogRepository->create([
+            'event_id' => $order->getEventId(),
+            'order_id' => $order->getId(),
+            'attendee_id' => null,
+            'action' => OrderAuditAction::ORDER_SELF_CANCELLED->value,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'changed_fields' => implode(',', $changedFields),
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+        ]);
+    }
+
     public function logEmailResent(
         string $action,
         int $eventId,

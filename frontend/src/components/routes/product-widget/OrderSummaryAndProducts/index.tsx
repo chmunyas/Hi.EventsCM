@@ -17,7 +17,8 @@ import {
     IconPrinter,
     IconSend,
     IconTicket,
-    IconUser
+    IconUser,
+    IconX,
 } from "@tabler/icons-react";
 import {useEffect, useState} from "react";
 import {useQueryClient} from "@tanstack/react-query";
@@ -45,6 +46,7 @@ import {useEditAttendeePublic} from "../../../../mutations/useEditAttendeePublic
 import {useEditOrderPublic} from "../../../../mutations/useEditOrderPublic";
 import {useResendAttendeeTicketPublic} from "../../../../mutations/useResendAttendeeTicketPublic";
 import {useResendOrderConfirmationPublic} from "../../../../mutations/useResendOrderConfirmationPublic";
+import {useCancelOrderPublic} from "../../../../mutations/useCancelOrderPublic";
 
 import {Attendee, Event, Order, Product} from "../../../../types.ts";
 import classes from './OrderSummaryAndProducts.module.scss';
@@ -420,8 +422,13 @@ export const OrderSummaryAndProducts = () => {
     const editOrderMutation = useEditOrderPublic();
     const resendAttendeeTicketMutation = useResendAttendeeTicketPublic();
     const resendOrderConfirmationMutation = useResendOrderConfirmationPublic();
+    const cancelOrderMutation = useCancelOrderPublic();
 
     const allowSelfEdit = event?.settings?.allow_attendee_self_edit ?? false;
+    const canSelfCancel = allowSelfEdit
+        && order.status !== 'CANCELLED'
+        && !!event?.start_date
+        && new Date(event.start_date).getTime() > Date.now();
 
     const handleEditAttendee = (attendee: Attendee, data: any) => {
         editAttendeeMutation.mutate(
@@ -535,6 +542,32 @@ export const OrderSummaryAndProducts = () => {
         );
     };
 
+    const handleCancelOrder = () => {
+        if (!window.confirm(t`Are you sure you want to cancel this order? This action cannot be undone.`)) {
+            return;
+        }
+
+        cancelOrderMutation.mutate(
+            {
+                eventId: eventId!,
+                orderShortId: orderShortId!,
+            },
+            {
+                onSuccess: (result) => {
+                    queryClient.invalidateQueries({queryKey: [GET_ORDER_PUBLIC_QUERY_KEY]});
+                    showSuccess(result.message || t`Order cancelled successfully`);
+                },
+                onError: (error: any) => {
+                    if (error?.response?.status === 429) {
+                        showError(t`Rate limit exceeded. Please try again later.`);
+                    } else {
+                        showError(error?.response?.data?.message || t`Failed to cancel order`);
+                    }
+                },
+            }
+        );
+    };
+
     if (isError) {
         return (
             <HomepageInfoMessage
@@ -598,6 +631,20 @@ export const OrderSummaryAndProducts = () => {
                     onEditClick={() => setEditOrderModalOpened(true)}
                     onResendClick={handleResendOrderConfirmation}
                 />
+
+                {canSelfCancel && (
+                    <Group mb="xl">
+                        <Button
+                            color="red"
+                            variant="light"
+                            leftSection={<IconX size={16}/>}
+                            onClick={handleCancelOrder}
+                            loading={cancelOrderMutation.isPending}
+                        >
+                            {t`Cancel Order`}
+                        </Button>
+                    </Group>
+                )}
 
                 {(['online', 'hybrid'].includes(event?.settings?.event_location_type || '') || event?.settings?.is_online_event) && <OnlineEventDetails eventSettings={event.settings}/>}
 

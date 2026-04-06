@@ -125,6 +125,54 @@ class OrderAuditLogServiceTest extends TestCase
         $this->assertTrue(true);
     }
 
+    public function testLogOrderSelfCancelledCreatesAuditLogEntry(): void
+    {
+        $order = Mockery::mock(OrderDomainObject::class);
+        $order->shouldReceive('getEventId')->andReturn(1);
+        $order->shouldReceive('getId')->andReturn(123);
+
+        $oldValues = [
+            'status' => 'COMPLETED',
+            'refund_status' => null,
+        ];
+
+        $newValues = [
+            'status' => 'CANCELLED',
+            'refund_status' => 'REFUNDED',
+        ];
+
+        $ipAddress = '192.168.1.1';
+        $userAgent = 'Mozilla/5.0';
+
+        $auditLog = Mockery::mock(OrderAuditLogDomainObject::class);
+
+        $this->orderAuditLogRepository
+            ->shouldReceive('create')
+            ->once()
+            ->withArgs(function ($data) use ($oldValues, $newValues, $ipAddress, $userAgent) {
+                return $data['event_id'] === 1
+                    && $data['order_id'] === 123
+                    && $data['attendee_id'] === null
+                    && $data['action'] === OrderAuditAction::ORDER_SELF_CANCELLED->value
+                    && $data['old_values'] === $oldValues
+                    && $data['new_values'] === $newValues
+                    && $data['changed_fields'] === 'status,refund_status'
+                    && $data['ip_address'] === $ipAddress
+                    && $data['user_agent'] === $userAgent;
+            })
+            ->andReturn($auditLog);
+
+        $this->service->logOrderSelfCancelled(
+            order: $order,
+            oldValues: $oldValues,
+            newValues: $newValues,
+            ipAddress: $ipAddress,
+            userAgent: $userAgent
+        );
+
+        $this->assertTrue(true);
+    }
+
     public function testLogEmailResentForAttendee(): void
     {
         $action = OrderAuditAction::ATTENDEE_EMAIL_RESENT->value;

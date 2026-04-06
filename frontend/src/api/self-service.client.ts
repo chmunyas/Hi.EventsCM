@@ -8,6 +8,7 @@ export interface SelfServiceUpdateResult {
     message: string;
     warning?: string;
     email_sent?: boolean;
+    refunded?: boolean;
 }
 
 export interface EditAttendeeData {
@@ -44,6 +45,16 @@ export const selfServiceClient = {
         const response = await publicApi.patch(
             `/events/${eventId}/order/${orderShortId}`,
             data
+        );
+        return response.data;
+    },
+
+    cancelOrder: async (
+        eventId: IdParam,
+        orderShortId: string
+    ): Promise<SelfServiceUpdateResult> => {
+        const response = await publicApi.post(
+            `/events/${eventId}/order/${orderShortId}/cancel`
         );
         return response.data;
     },
