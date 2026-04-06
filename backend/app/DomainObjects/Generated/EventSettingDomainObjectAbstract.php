@@ -112,6 +112,7 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     final public const INVOICE_COMPANY_INFO = 'invoice_company_info';
     final public const WAITLIST_AUTO_OFFER_SEATS = 'waitlist_auto_offer_seats';
     final public const WAITLIST_AUTO_OFFER_DELAY_MINUTES = 'waitlist_auto_offer_delay_minutes';
+    final public const TRACKING_INTEGRATIONS = 'tracking_integrations';
 
     protected int $id;
     protected int $event_id;
@@ -215,6 +216,7 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     protected ?string $invoice_company_info = null;
     protected ?int $waitlist_auto_offer_seats = null;
     protected ?int $waitlist_auto_offer_delay_minutes = 5;
+    protected array|string|null $tracking_integrations = null;
 
     public function toArray(): array
     {
@@ -1445,5 +1447,16 @@ abstract class EventSettingDomainObjectAbstract extends \HiEvents\DomainObjects\
     public function getWaitlistAutoOfferDelayMinutes(): ?int
     {
         return $this->waitlist_auto_offer_delay_minutes;
+    }
+
+    public function setTrackingIntegrations(array|string|null $tracking_integrations): self
+    {
+        $this->tracking_integrations = $tracking_integrations;
+        return $this;
+    }
+
+    public function getTrackingIntegrations(): array|string|null
+    {
+        return $this->tracking_integrations;
     }
 }
