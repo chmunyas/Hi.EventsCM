@@ -2,6 +2,7 @@
 import {Helmet} from "react-helmet-async";
 import {Organizer} from "../../../types";
 import {organizerHomepageUrl} from "../../../utilites/urlHelper.ts";
+import {htmlSafeJsonStringify} from "../../../utilites/safeScriptJson.js";
 
 interface OrganizerDocumentHeadProps {
     organizer: Organizer;
@@ -17,16 +18,16 @@ export const OrganizerDocumentHead = ({organizer}: OrganizerDocumentHeadProps) =
     const image = coverImage || logoImage;
     const url = organizerHomepageUrl(organizer);
 
-    const address = organizerSettings?.location_details ? {
+    const structuredAddress = organizer.location?.structured_address;
+    const address = structuredAddress ? {
         "@type": "http://schema.org/PostalAddress",
-        streetAddress: organizerSettings.location_details.address_line_1,
-        addressLocality: organizerSettings.location_details.city,
-        addressRegion: organizerSettings.location_details.state_or_region,
-        postalCode: organizerSettings.location_details.zip_or_postal_code,
-        addressCountry: organizerSettings.location_details.country
+        streetAddress: structuredAddress.address_line_1,
+        addressLocality: structuredAddress.city,
+        addressRegion: structuredAddress.state_or_region,
+        postalCode: structuredAddress.zip_or_postal_code,
+        addressCountry: structuredAddress.country
     } : undefined;
 
-    // Filter out undefined address properties
     if (address) {
         Object.keys(address).forEach(key => {
             // @ts-ignore
@@ -39,11 +40,10 @@ export const OrganizerDocumentHead = ({organizer}: OrganizerDocumentHeadProps) =
 
     const location = address && Object.keys(address).length > 1 ? {
         "@type": "http://schema.org/Place",
-        name: organizerSettings?.location_details?.venue_name,
+        name: organizer.location?.name ?? structuredAddress?.venue_name,
         address
     } : undefined;
 
-    // Collect social media links
     const sameAs = [];
     if (organizerSettings?.website_url) {
         sameAs.push(organizerSettings.website_url);
@@ -70,7 +70,6 @@ export const OrganizerDocumentHead = ({organizer}: OrganizerDocumentHeadProps) =
         sameAs: sameAs.length > 0 ? sameAs : undefined,
     };
 
-    // Remove undefined properties
     Object.keys(schemaOrgJSONLD).forEach(key => {
         // @ts-ignore
         if (schemaOrgJSONLD[key] === undefined) {
@@ -103,7 +102,7 @@ export const OrganizerDocumentHead = ({organizer}: OrganizerDocumentHeadProps) =
             <link rel="canonical" href={url}/>
 
             <script type="application/ld+json">
-                {JSON.stringify(schemaOrgJSONLD)}
+                {htmlSafeJsonStringify(schemaOrgJSONLD)}
             </script>
         </Helmet>
     );

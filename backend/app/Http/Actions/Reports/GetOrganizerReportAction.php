@@ -3,6 +3,7 @@
 namespace HiEvents\Http\Actions\Reports;
 
 use HiEvents\DomainObjects\Enums\OrganizerReportTypes;
+use HiEvents\DomainObjects\Enums\Permission;
 use HiEvents\DomainObjects\OrganizerDomainObject;
 use HiEvents\Http\Actions\BaseAction;
 use HiEvents\Http\Request\Report\GetOrganizerReportRequest;
@@ -16,11 +17,17 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class GetOrganizerReportAction extends BaseAction
 {
-    public function __construct(private readonly GetOrganizerReportHandler $reportHandler)
-    {
-    }
+    public function __construct(private readonly GetOrganizerReportHandler $reportHandler) {}
 
     /**
+     * Get Organizer Report
+     *
+     * The response rows depend on the requested `reportType`. Paginated report types return
+     * `{data, meta, links}`; non-paginated report types return `{data}`.
+     *
+     * `start_date` and `end_date` are widened to whole days in the organizer's timezone. Rows of
+     * `revenue_summary` are grouped by the UTC date of each order.
+     *
      * @throws ValidationException
      */
     public function __invoke(GetOrganizerReportRequest $request, int $organizerId, string $reportType): JsonResponse
@@ -29,8 +36,12 @@ class GetOrganizerReportAction extends BaseAction
 
         $this->validateDateRange($request);
 
-        if (!in_array($reportType, OrganizerReportTypes::valuesArray(), true)) {
+        if (! in_array($reportType, OrganizerReportTypes::valuesArray(), true)) {
             throw new BadRequestHttpException(__('Invalid report type.'));
+        }
+
+        if (OrganizerReportTypes::from($reportType)->isFinancial()) {
+            $this->requirePermission(Permission::VIEW_FINANCIALS);
         }
 
         $reportData = $this->reportHandler->handle(
@@ -66,7 +77,7 @@ class GetOrganizerReportAction extends BaseAction
         $startDate = $request->validated('start_date');
         $endDate = $request->validated('end_date');
 
-        if (!$startDate || !$endDate) {
+        if (! $startDate || ! $endDate) {
             return;
         }
 

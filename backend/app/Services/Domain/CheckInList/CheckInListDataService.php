@@ -17,24 +17,31 @@ class CheckInListDataService
 {
     public function __construct(
         private readonly CheckInListRepositoryInterface $checkInListRepository,
-        private readonly AttendeeRepositoryInterface    $attendeeRepository,
-    )
-    {
-    }
+        private readonly AttendeeRepositoryInterface $attendeeRepository,
+    ) {}
 
     /**
      * @throws CannotCheckInException
      */
     public function verifyAttendeeBelongsToCheckInList(
         CheckInListDomainObject $checkInList,
-        AttendeeDomainObject    $attendee,
-    ): void
-    {
-        $allowedProductIds = $checkInList->getProducts()->map(fn($product) => $product->getId())->toArray() ?? [];
+        AttendeeDomainObject $attendee,
+    ): void {
+        $allowedProductIds = $checkInList->getProducts()?->map(fn ($product) => $product->getId())->toArray() ?? [];
 
-        if (!in_array($attendee->getProductId(), $allowedProductIds, true)) {
+        if (! empty($allowedProductIds) && ! in_array($attendee->getProductId(), $allowedProductIds, true)) {
             throw new CannotCheckInException(
                 __('Attendee :attendee_name is not allowed to check in using this check-in list', [
+                    'attendee_name' => $attendee->getFullName(),
+                ])
+            );
+        }
+
+        if ($checkInList->getEventOccurrenceId() !== null
+            && $attendee->getEventOccurrenceId() !== $checkInList->getEventOccurrenceId()
+        ) {
+            throw new CannotCheckInException(
+                __(':attendee_name\'s ticket is for a different session — check they\'re on the right check-in list.', [
                     'attendee_name' => $attendee->getFullName(),
                 ])
             );
@@ -43,24 +50,25 @@ class CheckInListDataService
 
     /**
      * @return Collection<AttendeeDomainObject>
-     * @throws Exception
      *
+     * @throws Exception
      * @throws CannotCheckInException
      */
-    public function getAttendees(Collection $attendeePublicIds): Collection
+    public function getAttendees(CheckInListDomainObject $checkInList, Collection $attendeePublicIds): Collection
     {
         $attendeePublicIds = array_unique($attendeePublicIds->toArray());
 
         $attendees = $this->attendeeRepository->findWhereIn(
             field: AttendeeDomainObjectAbstract::PUBLIC_ID,
-            values: $attendeePublicIds
+            values: $attendeePublicIds,
+            additionalWhere: [AttendeeDomainObjectAbstract::EVENT_ID => $checkInList->getEventId()],
         );
 
         if (count($attendees) !== count($attendeePublicIds)) {
             throw new CannotCheckInException(__('Invalid attendee code detected: :attendees ', [
                 'attendees' => implode(', ', array_diff(
-                        $attendeePublicIds,
-                        $attendees->pluck(AttendeeDomainObjectAbstract::PUBLIC_ID)->toArray())
+                    $attendeePublicIds,
+                    $attendees->pluck(AttendeeDomainObjectAbstract::PUBLIC_ID)->toArray())
                 ),
             ]));
         }

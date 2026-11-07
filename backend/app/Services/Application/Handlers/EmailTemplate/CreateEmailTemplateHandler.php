@@ -8,17 +8,17 @@ use HiEvents\Exceptions\ResourceConflictException;
 use HiEvents\Repository\Interfaces\EmailTemplateRepositoryInterface;
 use HiEvents\Services\Application\Handlers\EmailTemplate\DTO\UpsertEmailTemplateDTO;
 use HiEvents\Services\Domain\Email\EmailTemplateService;
+use HiEvents\Services\Domain\Event\EventSpamCheckDispatchService;
 use HiEvents\Services\Infrastructure\HtmlPurifier\HtmlPurifierService;
 
 class CreateEmailTemplateHandler
 {
     public function __construct(
         private readonly EmailTemplateRepositoryInterface $emailTemplateRepository,
-        private readonly EmailTemplateService             $emailTemplateService,
-        private readonly HtmlPurifierService              $purifier,
-    )
-    {
-    }
+        private readonly EmailTemplateService $emailTemplateService,
+        private readonly HtmlPurifierService $purifier,
+        private readonly EventSpamCheckDispatchService $eventSpamCheckDispatchService,
+    ) {}
 
     /**
      * @throws EmailTemplateValidationException
@@ -27,13 +27,12 @@ class CreateEmailTemplateHandler
     public function handle(UpsertEmailTemplateDTO $dto): EmailTemplateDomainObject
     {
         $validation = $this->emailTemplateService->validateTemplate($dto->subject, $dto->body);
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             $exception = new EmailTemplateValidationException('Template validation failed');
             $exception->validationErrors = $validation['errors'];
             throw $exception;
         }
 
-        // Check for existing template
         $existing = $this->emailTemplateRepository->findByTypeAndScope(
             $dto->template_type,
             $dto->account_id,
@@ -42,11 +41,10 @@ class CreateEmailTemplateHandler
         );
 
         if ($existing) {
-            throw new ResourceConflictException('A template already exists for this type and scope');
+            throw new ResourceConflictException(__('A template already exists for this type and scope'));
         }
 
-        // Create the template
-        return $this->emailTemplateRepository->create([
+        $template = $this->emailTemplateRepository->create([
             'account_id' => $dto->account_id,
             'organizer_id' => $dto->organizer_id,
             'event_id' => $dto->event_id,
@@ -57,5 +55,9 @@ class CreateEmailTemplateHandler
             'engine' => $dto->engine->value,
             'is_active' => $dto->is_active,
         ]);
+
+        $this->eventSpamCheckDispatchService->dispatchForEmailTemplate($template);
+
+        return $template;
     }
 }

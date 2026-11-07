@@ -4,6 +4,7 @@ namespace HiEvents\Services\Application\Handlers\Question;
 
 use HiEvents\DomainObjects\QuestionDomainObject;
 use HiEvents\Services\Application\Handlers\Question\DTO\UpsertQuestionDTO;
+use HiEvents\Services\Domain\Event\EventSpamCheckDispatchService;
 use HiEvents\Services\Domain\Question\CreateQuestionService;
 use HiEvents\Services\Infrastructure\HtmlPurifier\HtmlPurifierService;
 use Throwable;
@@ -12,17 +13,16 @@ class CreateQuestionHandler
 {
     public function __construct(
         private readonly CreateQuestionService $createQuestionService,
-        private readonly HtmlPurifierService   $purifier,
-    )
-    {
-    }
+        private readonly HtmlPurifierService $purifier,
+        private readonly EventSpamCheckDispatchService $eventSpamCheckDispatchService,
+    ) {}
 
     /**
      * @throws Throwable
      */
     public function handle(UpsertQuestionDTO $createQuestionDTO): QuestionDomainObject
     {
-        $question = (new QuestionDomainObject())
+        $question = (new QuestionDomainObject)
             ->setTitle($createQuestionDTO->title)
             ->setEventId($createQuestionDTO->event_id)
             ->setBelongsTo($createQuestionDTO->belongs_to->name)
@@ -30,11 +30,20 @@ class CreateQuestionHandler
             ->setRequired($createQuestionDTO->required)
             ->setOptions($createQuestionDTO->options)
             ->setIsHidden($createQuestionDTO->is_hidden)
+            ->setAppliesToAllTickets($createQuestionDTO->applies_to_all_tickets)
+            ->setConditionQuestionId($createQuestionDTO->condition_question_id)
+            ->setConditionValues($createQuestionDTO->condition_values)
+            ->setDisqualifyingOptions($createQuestionDTO->disqualifying_options)
+            ->setDisqualificationMessage($createQuestionDTO->disqualification_message)
             ->setDescription($this->purifier->purify($createQuestionDTO->description));
 
-        return $this->createQuestionService->createQuestion(
+        $createdQuestion = $this->createQuestionService->createQuestion(
             $question,
             $createQuestionDTO->product_ids,
         );
+
+        $this->eventSpamCheckDispatchService->dispatchForEvent($createQuestionDTO->event_id);
+
+        return $createdQuestion;
     }
 }

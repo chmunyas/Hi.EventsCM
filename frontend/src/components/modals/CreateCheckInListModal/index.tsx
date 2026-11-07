@@ -1,5 +1,5 @@
-import {CheckInList, CheckInListRequest, GenericModalProps, Product, ProductCategory} from "../../../types.ts";
-import {Modal} from "../../common/Modal";
+import {CheckInList, CheckInListRequest, EventType, GenericModalProps, ProductCategory} from "../../../types.ts";
+import {Modal, ModalFooter} from "../../common/Modal";
 import {t} from "@lingui/macro";
 import {CheckInListForm} from "../../forms/CheckInListForm";
 import {useForm} from "@mantine/form";
@@ -12,8 +12,13 @@ import {NoResultsSplash} from "../../common/NoResultsSplash";
 import {IconPlus} from "@tabler/icons-react";
 import {CheckInListSuccessModal} from "../CheckInListSuccessModal";
 import {useState} from "react";
+import {getProductsFromEvent} from "../../../utilites/helpers.ts";
 
-export const CreateCheckInListModal = ({onClose}: GenericModalProps) => {
+interface CreateCheckInListModalProps extends GenericModalProps {
+    initialOccurrenceId?: number | null;
+}
+
+export const CreateCheckInListModal = ({onClose, initialOccurrenceId}: CreateCheckInListModalProps) => {
     const {eventId} = useParams();
     const errorHandler = useFormErrorResponseHandler();
     const {data: event} = useGetEvent(eventId);
@@ -25,13 +30,14 @@ export const CreateCheckInListModal = ({onClose}: GenericModalProps) => {
             expires_at: '',
             activates_at: '',
             product_ids: [],
+            event_occurrence_id: initialOccurrenceId ?? null,
+            public_show_attendee_notes: true,
+            public_show_question_answers: true,
+            public_show_order_details: true,
         }
     });
     const createMutation = useCreateCheckInList();
-    const eventHasTickets = event?.product_categories
-        && event.product_categories.some(category => category.products.length > 0)
-        && event.product_categories.filter(category =>
-            category?.products?.filter((product: Product) => product.product_type === 'TICKET').length > 0).length > 0
+    const eventHasTickets = getProductsFromEvent(event)?.some(product => product.product_type === 'TICKET');
 
     const handleSubmit = (requestData: CheckInListRequest) => {
         createMutation.mutate({
@@ -80,7 +86,7 @@ export const CreateCheckInListModal = ({onClose}: GenericModalProps) => {
     }
 
     return (
-        <Modal opened onClose={onClose} heading={eventHasTickets ? t`Create Check-In List` : null}>
+        <Modal opened onClose={onClose} heading={t`Create Check-In List`}>
             {!eventHasTickets && <NoProducts/>}
             {eventHasTickets && (
                 <form onSubmit={form.onSubmit(handleSubmit)}>
@@ -88,16 +94,22 @@ export const CreateCheckInListModal = ({onClose}: GenericModalProps) => {
                         <CheckInListForm
                             form={form}
                             productCategories={event.product_categories as ProductCategory[]}
+                            eventType={event.type as EventType}
+                            occurrences={event.occurrences}
+                            timezone={event.timezone}
+                            isNewForOccurrence={!!initialOccurrenceId}
                         />
                     )}
-                    <Button
-                        type={'submit'}
-                        fullWidth
-                        loading={createMutation.isPending}
-                        mt="md"
-                    >
-                        {t`Create Check-In List`}
-                    </Button>
+                    <ModalFooter>
+                        <Button variant="default" onClick={onClose}>{t`Cancel`}</Button>
+                        <Button
+                            type={'submit'}
+                            loading={createMutation.isPending}
+                            data-testid="checkin-list-submit-button"
+                        >
+                            {t`Create Check-In List`}
+                        </Button>
+                    </ModalFooter>
                 </form>
             )}
         </Modal>

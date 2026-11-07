@@ -5,12 +5,16 @@ import {useGetEventSettings} from '../../../../queries/useGetEventSettings.ts';
 import {useGetEventImages} from '../../../../queries/useGetEventImages.ts';
 import {AttendeeTicket} from '../../../common/AttendeeTicket';
 import {PoweredByFooter} from '../../../common/PoweredByFooter';
+import {useBrandingSubscription} from '../../../../hooks/useBrandingSubscription.ts';
 import {t} from '@lingui/macro';
 import {useEffect} from "react";
+import {resolveEventLocation} from "../../../../utilites/effectiveLocation.ts";
+import {Attendee, LocationType, Product, ProductPriceType, ProductType} from "../../../../types.ts";
 import classes from '../../../routes/product-widget/PrintOrder/PrintOrder.module.scss';
 
 const TicketDesignerPrint = () => {
     const {eventId} = useParams();
+    const {isActive, isSettled} = useBrandingSubscription();
     const eventQuery = useGetEvent(eventId);
     const meQuery = useGetMe();
     const settingsQuery = useGetEventSettings(eventId);
@@ -22,32 +26,27 @@ const TicketDesignerPrint = () => {
     const images = imagesQuery.data;
 
     useEffect(() => {
-        if (event && user && settings) {
+        if (event && user && settings && isSettled) {
             setTimeout(() => window?.print(), 500);
         }
-    }, [event, user, settings]);
+    }, [event, user, settings, isSettled]);
 
     if (!event || !user || !settings) {
         return null;
     }
 
-    const mockProduct = {
+    const mockProduct: Product = {
         id: 1,
         title: t`General Admission`,
         price: 2500,
-        type: "TICKET" as const,
-        sale_start_date: null,
-        sale_end_date: null,
-        max_per_order: null,
-        min_per_order: null,
-        quantity_available: null,
+        type: ProductPriceType.Paid,
+        product_type: ProductType.Ticket,
         is_hidden: false,
-        sort_order: 1,
         description: "",
         is_hidden_without_promo_code: false
     };
 
-    const mockAttendee = {
+    const mockAttendee: Attendee = {
         id: 1,
         public_id: "PREVIEW12345",
         short_id: "P1234",
@@ -55,32 +54,29 @@ const TicketDesignerPrint = () => {
         last_name: user.last_name || "Doe",
         email: user.email || "john.doe@example.com",
         status: "ACTIVE" as const,
-        checked_in_at: null,
-        product_id: mockProduct.id,
+        product_id: 1,
         product: mockProduct,
         product_price_id: 1,
+        seat_label: event.has_seat_map ? t`Stalls · C-14` : null,
         order_id: 1,
-        order: {
-            id: 1,
-            short_id: "ORD123",
-            public_id: "ORD123",
-            created_at: new Date().toISOString(),
-            total_gross: 2500,
-            currency: event.currency || "USD",
-        }
     };
 
-    // Merge the ticket design settings and images into the event
+    const fallbackLocationDetails = {
+        venue_name: t`Sample Venue`,
+        address_line_1: t`123 Sample Street`,
+    };
+    const resolved = resolveEventLocation(event, null);
+    const resolvedEventLocation = resolved?.type === LocationType.InPerson && resolved.location
+        ? resolved
+        : {
+            id: 0,
+            type: LocationType.InPerson,
+            location: {name: fallbackLocationDetails.venue_name, structured_address: fallbackLocationDetails},
+        };
     const eventWithDesignSettings = {
         ...event,
-        settings: {
-            ...event.settings,
-            ticket_design_settings: settings.ticket_design_settings,
-            location_details: event.settings?.location_details || {
-                venue_name: t`Sample Venue`,
-                address_line_1: t`123 Sample Street`,
-            }
-        },
+        event_location: resolvedEventLocation,
+        settings,
         images: images || []
     };
 
@@ -95,7 +91,7 @@ const TicketDesignerPrint = () => {
                     hideButtons
                 />
                 <div className={classes.poweredBy}>
-                    <PoweredByFooter/>
+                    <PoweredByFooter brandingRemoved={isActive}/>
                 </div>
             </div>
         </div>

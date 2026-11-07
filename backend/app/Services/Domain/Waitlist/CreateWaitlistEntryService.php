@@ -4,8 +4,11 @@ namespace HiEvents\Services\Domain\Waitlist;
 
 use HiEvents\DomainObjects\EventSettingDomainObject;
 use HiEvents\DomainObjects\ProductDomainObject;
+use HiEvents\DomainObjects\ProductPriceDomainObject;
+use HiEvents\DomainObjects\PromoCodeDomainObject;
 use HiEvents\DomainObjects\Status\WaitlistEntryStatus;
 use HiEvents\DomainObjects\WaitlistEntryDomainObject;
+use HiEvents\Enterprise\Seating\Services\Domain\SeatedProductLookupService;
 use HiEvents\Exceptions\ResourceConflictException;
 use HiEvents\Helper\EmailHelper;
 use HiEvents\Jobs\Waitlist\SendWaitlistConfirmationEmailJob;
@@ -18,31 +21,33 @@ class CreateWaitlistEntryService
 {
     public function __construct(
         private readonly WaitlistEntryRepositoryInterface $waitlistEntryRepository,
-        private readonly DatabaseManager                  $databaseManager,
-    )
-    {
-    }
+        private readonly DatabaseManager $databaseManager,
+        private readonly SeatedProductLookupService $seatedProductLookup,
+    ) {}
 
     /**
      * @throws ResourceConflictException
      */
     public function createEntry(
-        CreateWaitlistEntryDTO    $dto,
-        EventSettingDomainObject  $eventSettings,
-        ProductDomainObject       $product,
-    ): WaitlistEntryDomainObject
-    {
+        CreateWaitlistEntryDTO $dto,
+        EventSettingDomainObject $eventSettings,
+        ProductDomainObject $product,
+        ProductPriceDomainObject $productPrice,
+        ?PromoCodeDomainObject $promoCode = null,
+    ): WaitlistEntryDomainObject {
         $this->validateWaitlistEnabled($product);
+        $this->validateOnPublicSale($product, $productPrice, $promoCode);
 
         /** @var WaitlistEntryDomainObject $entry */
         $entry = $this->databaseManager->transaction(function () use ($dto) {
-            $this->waitlistEntryRepository->lockForProductPrice($dto->product_price_id);
+            $this->waitlistEntryRepository->lockForProductPrice($dto->product_price_id, $dto->event_occurrence_id);
             $this->validateNoDuplicate($dto);
             $position = $this->calculatePosition($dto);
 
             return $this->waitlistEntryRepository->create([
                 'event_id' => $dto->event_id,
                 'product_price_id' => $dto->product_price_id,
+                'event_occurrence_id' => $dto->event_occurrence_id,
                 'email' => EmailHelper::normalize($dto->email),
                 'first_name' => trim($dto->first_name),
                 'last_name' => $dto->last_name ? trim($dto->last_name) : null,
@@ -63,7 +68,24 @@ class CreateWaitlistEntryService
      */
     private function validateWaitlistEnabled(ProductDomainObject $product): void
     {
-        if ($product->getWaitlistEnabled() === false) {
+        if ($product->getWaitlistEnabled() !== true) {
+            throw new ResourceConflictException(__('Waitlist is not enabled for this product'));
+        }
+
+        if ($this->seatedProductLookup->isSeated($product->getId())) {
+            throw new ResourceConflictException(__('The waitlist is not available for reserved seating tickets'));
+        }
+    }
+
+    /**
+     * @throws ResourceConflictException
+     */
+    private function validateOnPublicSale(
+        ProductDomainObject $product,
+        ProductPriceDomainObject $productPrice,
+        ?PromoCodeDomainObject $promoCode,
+    ): void {
+        if (! $product->isOnPublicSale($promoCode) || ! $productPrice->isOnSale()) {
             throw new ResourceConflictException(__('Waitlist is not enabled for this product'));
         }
     }
@@ -78,6 +100,7 @@ class CreateWaitlistEntryService
             'event_id' => $dto->event_id,
             ['status', 'in', [WaitlistEntryStatus::WAITING->name, WaitlistEntryStatus::OFFERED->name]],
             'product_price_id' => $dto->product_price_id,
+            'event_occurrence_id' => $dto->event_occurrence_id,
         ];
 
         $existing = $this->waitlistEntryRepository->findFirstWhere($conditions);
@@ -91,6 +114,6 @@ class CreateWaitlistEntryService
 
     private function calculatePosition(CreateWaitlistEntryDTO $dto): int
     {
-        return $this->waitlistEntryRepository->getMaxPosition($dto->product_price_id) + 1;
+        return $this->waitlistEntryRepository->getMaxPosition($dto->product_price_id, $dto->event_occurrence_id) + 1;
     }
 }

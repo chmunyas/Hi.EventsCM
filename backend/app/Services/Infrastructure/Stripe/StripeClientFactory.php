@@ -10,8 +10,7 @@ class StripeClientFactory
 {
     public function __construct(
         private readonly StripeConfigurationService $configurationService
-    ) {
-    }
+    ) {}
 
     /**
      * @throws StripeClientConfigurationException
@@ -28,5 +27,13 @@ class StripeClientFactory
         }
 
         return new StripeClient($secretKey);
+    }
+
+    /**
+     * @throws StripeClientConfigurationException
+     */
+    public function createForBilling(): StripeClient
+    {
+        return $this->createForPlatform($this->configurationService->getPrimaryPlatform());
     }
 }

@@ -10,7 +10,7 @@ import {useMediaQuery} from "@mantine/hooks";
 import {getConfig} from "../../../../utilites/config.ts";
 
 interface SidebarProps {
-    sidebarOpen: boolean;
+    sidebarOpen: boolean | null;
     setSidebarOpen: (open: boolean) => void;
     navItems: NavItem[];
     sidebarFooter?: React.ReactNode;
@@ -22,21 +22,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     navItems,
                                                     sidebarFooter,
                                                 }) => {
-    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isMobile = useMediaQuery('(max-width: 767px)');
+
+    const isHeading = (item: NavItem) => !item.link && item.link !== "" && item.onClick === undefined;
+
+    const visibleItems = () => {
+        const shown = navItems.filter(item => !item.showWhen || item.showWhen());
+
+        return shown.filter((item, index) => {
+            if (!isHeading(item)) {
+                return true;
+            }
+            const next = shown[index + 1];
+            return !!next && !isHeading(next);
+        });
+    };
 
     const renderLinks = () => {
-        return navItems.map((item) => {
+        return visibleItems().map((item) => {
 
-            if (!item.link && item.link !== "" && item.onClick === undefined) {
+            if (isHeading(item)) {
                 return (
                     <div className={classes.sectionHeading} key={item.label}>
                         {item.label}
                     </div>
                 );
-            }
-
-            if (item.showWhen && !item.showWhen()) {
-                return null;
             }
 
             if (item.loading) {
@@ -47,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
                 <NavLink
                     to={item.comingSoon ? '#' : (item.link ?? '#')}
-                    key={item.label}
+                    key={item.link ?? item.label}
                     onClick={() => {
                         if (isMobile) {
                             setSidebarOpen(false);
@@ -62,8 +72,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                     {item.icon && <item.icon size={20} className={classes.linkIcon} stroke={1.5}/>}
                     <span>{item.label}</span>
-                    {item.badge !== undefined &&
-                        <Badge size="xs" radius="xl" className={classes.navBadge}>{item.badge}</Badge>}
+                    {item.badge !== undefined && (
+                        <Badge
+                            size="xs"
+                            radius="xl"
+                            className={item.badgeColor ? classes.navBadgeAlert : classes.navBadge}
+                        >
+                            {item.badge}
+                        </Badge>
+                    )}
                     {item.comingSoon &&
                         <Badge ml={'4px'} size={'xs'} className={classes.comingSoonBadge}>{t`Coming Soon`}</Badge>}
                 </NavLink>
@@ -72,28 +89,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className={classNames(`${classes.sidebar} ${sidebarOpen ? classes.open : classes.closed}`)}>
+        <div
+            id="app-manage-sidebar"
+            className={classNames(classes.sidebar, {[classes.open]: sidebarOpen === true, [classes.closed]: sidebarOpen === false})}
+        >
             <div className={classes.logo}>
                 <NavLink to={`/manage/events`}>
                     <img
-                        style={{maxWidth: '160px', margin: "10px auto"}}
                         src={getConfig("VITE_APP_LOGO_LIGHT", "/logos/hi-events-text-dark.svg")}
                         alt={t`${getConfig("VITE_APP_NAME", "Hi.Events")} logo`}
                     />
                 </NavLink>
             </div>
-            <div className={classes.nav}>
+            <nav className={classes.nav} aria-label={t`Main navigation`}>
                 {renderLinks()}
-            </div>
+            </nav>
             {sidebarFooter && (
                 <div className={classes.sidebarFooter}>
                     {sidebarFooter}
                 </div>
             )}
-            {sidebarOpen && (
+            {sidebarOpen !== false && (
                 <UnstyledButton
                     className={classes.sidebarClose}
-                    onClick={() => setSidebarOpen(!sidebarOpen)}>
+                    onClick={() => setSidebarOpen(false)}>
                     <IconChevronLeft size={20}/>
                     <VisuallyHidden>{t`Close sidebar`}</VisuallyHidden>
                 </UnstyledButton>

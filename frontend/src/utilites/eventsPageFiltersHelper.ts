@@ -11,7 +11,7 @@ export const getEventQueryFiltersWithParams = (
     eventsState?: string, 
     organizerId?: string
 ) => {
-    let filter = {};
+    let filter: Partial<QueryFilters> = {};
     if (eventsState === 'upcoming' || !eventsState) {
         filter = {
             additionalParams: {
@@ -21,10 +21,10 @@ export const getEventQueryFiltersWithParams = (
         };
     } else if (eventsState === 'ended') {
         filter = {
-            filterFields: {
-                end_date: {operator: QueryFilterOperator.LessThanOrEquals, value: 'now'},
-                status: {operator: QueryFilterOperator.NotEquals, value: EventStatus.ARCHIVED},
-            }
+            additionalParams: {
+                eventsStatus: 'ended',
+            },
+            filterFields: {}
         };
     } else if (eventsState === 'archived') {
         filter = {
@@ -35,7 +35,6 @@ export const getEventQueryFiltersWithParams = (
     }
 
     if (organizerId) {
-        // add the organizer filter on top of the other filters
         filter = {
             ...filter,
             filterFields: {

@@ -14,7 +14,9 @@ class EmailTemplateTokenTest extends TestCase
     use DatabaseTransactions;
 
     private User $user;
+
     private Account $account;
+
     private string $authToken;
 
     protected function setUp(): void
@@ -29,13 +31,13 @@ class EmailTemplateTokenTest extends TestCase
             'application_fees' => [
                 'percentage' => 1.5,
                 'fixed' => 0,
-            ]
+            ],
         ]);
 
         // Create user with account
         $password = 'password123';
-        $this->user = User::factory()->password($password)->withAccount()->create();
-        
+        $this->user = User::factory()->password($password)->withAccount()->create(['locale' => 'en']);
+
         // Get the account created by withAccount()
         $this->account = $this->user->accounts()->first();
 
@@ -44,14 +46,14 @@ class EmailTemplateTokenTest extends TestCase
             'email' => $this->user->email,
             'password' => $password,
         ]);
-        
+
         $this->authToken = $loginResponse->headers->get('X-Auth-Token');
     }
 
     public function test_can_get_order_confirmation_tokens(): void
     {
         $response = $this->getJson('/email-templates/tokens/order_confirmation', [
-            'Authorization' => 'Bearer ' . $this->authToken,
+            'Authorization' => 'Bearer '.$this->authToken,
         ]);
 
         $response->assertStatus(ResponseCodes::HTTP_OK)
@@ -68,11 +70,11 @@ class EmailTemplateTokenTest extends TestCase
         $tokens = $response->json('tokens');
         $this->assertNotEmpty($tokens);
 
-        $firstNameToken = collect($tokens)->firstWhere('token', '{{ order_first_name }}');
+        $firstNameToken = collect($tokens)->firstWhere('token', '{{ order.first_name }}');
         $this->assertNotNull($firstNameToken);
         $this->assertEquals('The first name of the person who placed the order', $firstNameToken['description']);
 
-        $lastNameToken = collect($tokens)->firstWhere('token', '{{ order_last_name }}');
+        $lastNameToken = collect($tokens)->firstWhere('token', '{{ order.last_name }}');
         $this->assertNotNull($lastNameToken);
         $this->assertEquals('The last name of the person who placed the order', $lastNameToken['description']);
     }
@@ -80,7 +82,7 @@ class EmailTemplateTokenTest extends TestCase
     public function test_can_get_attendee_ticket_tokens(): void
     {
         $response = $this->getJson('/email-templates/tokens/attendee_ticket', [
-            'Authorization' => 'Bearer ' . $this->authToken,
+            'Authorization' => 'Bearer '.$this->authToken,
         ]);
 
         $response->assertStatus(ResponseCodes::HTTP_OK)
@@ -97,14 +99,14 @@ class EmailTemplateTokenTest extends TestCase
         $tokens = $response->json('tokens');
         $this->assertNotEmpty($tokens);
 
-        $attendeeNameToken = collect($tokens)->firstWhere('token', '{{ attendee_name }}');
+        $attendeeNameToken = collect($tokens)->firstWhere('token', '{{ attendee.name }}');
         $this->assertNotNull($attendeeNameToken);
     }
 
     public function test_invalid_template_type_returns_validation_error(): void
     {
         $response = $this->getJson('/email-templates/tokens/invalid_type', [
-            'Authorization' => 'Bearer ' . $this->authToken,
+            'Authorization' => 'Bearer '.$this->authToken,
         ]);
 
         $response->assertStatus(ResponseCodes::HTTP_BAD_REQUEST);
@@ -114,41 +116,41 @@ class EmailTemplateTokenTest extends TestCase
     {
         $response = $this->getJson('/email-templates/tokens/order_confirmation');
 
-        $response->assertStatus(ResponseCodes::HTTP_INTERNAL_SERVER_ERROR);
+        $response->assertStatus(ResponseCodes::HTTP_UNAUTHORIZED);
     }
 
     public function test_tokens_include_order_specific_tokens(): void
     {
         $response = $this->getJson('/email-templates/tokens/order_confirmation', [
-            'Authorization' => 'Bearer ' . $this->authToken,
+            'Authorization' => 'Bearer '.$this->authToken,
         ]);
 
         $response->assertStatus(ResponseCodes::HTTP_OK);
-        
+
         $tokens = $response->json('tokens');
         $tokenNames = collect($tokens)->pluck('token')->toArray();
-        
-        $this->assertContains('{{ event_title }}', $tokenNames);
-        $this->assertContains('{{ order_number }}', $tokenNames);
-        $this->assertContains('{{ order_total }}', $tokenNames);
-        $this->assertContains('{{ organizer_name }}', $tokenNames);
+
+        $this->assertContains('{{ event.title }}', $tokenNames);
+        $this->assertContains('{{ order.number }}', $tokenNames);
+        $this->assertContains('{{ order.total }}', $tokenNames);
+        $this->assertContains('{{ organizer.name }}', $tokenNames);
     }
 
     public function test_tokens_have_proper_structure(): void
     {
         $response = $this->getJson('/email-templates/tokens/order_confirmation', [
-            'Authorization' => 'Bearer ' . $this->authToken,
+            'Authorization' => 'Bearer '.$this->authToken,
         ]);
 
         $response->assertStatus(ResponseCodes::HTTP_OK);
-        
+
         $tokens = $response->json('tokens');
-        
+
         foreach ($tokens as $token) {
             $this->assertArrayHasKey('token', $token);
             $this->assertArrayHasKey('description', $token);
             $this->assertArrayHasKey('example', $token);
-            
+
             $this->assertNotEmpty($token['description']);
             // Most tokens should start with {{ and end with }}
             if (str_starts_with($token['token'], '{{')) {

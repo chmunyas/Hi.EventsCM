@@ -8,11 +8,12 @@ use Illuminate\Support\Carbon;
 
 class ProductSalesReport extends AbstractReportService
 {
-    protected function getSqlQuery(Carbon $startDate, Carbon $endDate): string
+    protected function getSqlQuery(Carbon $startDate, Carbon $endDate, ?int $occurrenceId = null): string
     {
-        $startDateString = $startDate->format('Y-m-d H:i:s');
-        $endDateString = $endDate->format('Y-m-d H:i:s');
         $completedStatus = OrderStatus::COMPLETED->name;
+        $occurrenceFilter = $occurrenceId !== null
+            ? 'AND oi.event_occurrence_id = :occurrence_id'
+            : '';
 
         return <<<SQL
         WITH filtered_orders AS (
@@ -26,8 +27,9 @@ class ProductSalesReport extends AbstractReportService
             JOIN orders o ON oi.order_id = o.id
             WHERE o.status = '$completedStatus'
                 AND o.event_id = :event_id
-                AND o.created_at BETWEEN '$startDateString' AND '$endDateString'
+                AND o.created_at BETWEEN :start_at AND :end_at
                 AND oi.deleted_at IS NULL
+                $occurrenceFilter
         )
         SELECT
             p.id AS product_id,
@@ -44,5 +46,10 @@ class ProductSalesReport extends AbstractReportService
         GROUP BY p.id, p.title, p.type
         ORDER BY p."order"
 SQL;
+    }
+
+    protected function getAdditionalBindings(Carbon $startDate, Carbon $endDate): array
+    {
+        return $this->utcRangeBindings($startDate, $endDate);
     }
 }

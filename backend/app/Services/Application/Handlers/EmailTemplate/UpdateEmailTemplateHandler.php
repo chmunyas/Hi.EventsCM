@@ -9,6 +9,7 @@ use HiEvents\Exceptions\InvalidEmailTemplateException;
 use HiEvents\Repository\Interfaces\EmailTemplateRepositoryInterface;
 use HiEvents\Services\Application\Handlers\EmailTemplate\DTO\UpsertEmailTemplateDTO;
 use HiEvents\Services\Domain\Email\EmailTemplateService;
+use HiEvents\Services\Domain\Event\EventSpamCheckDispatchService;
 use HiEvents\Services\Infrastructure\HtmlPurifier\HtmlPurifierService;
 
 class UpdateEmailTemplateHandler
@@ -17,8 +18,8 @@ class UpdateEmailTemplateHandler
         private readonly EmailTemplateRepositoryInterface $emailTemplateRepository,
         private readonly EmailTemplateService $emailTemplateService,
         private readonly HtmlPurifierService $purifier,
-    ) {
-    }
+        private readonly EventSpamCheckDispatchService $eventSpamCheckDispatchService,
+    ) {}
 
     /**
      * @throws EmailTemplateValidationException
@@ -27,12 +28,12 @@ class UpdateEmailTemplateHandler
      */
     public function handle(UpsertEmailTemplateDTO $dto): EmailTemplateDomainObject
     {
-        if (!$dto->id) {
-            throw new InvalidEmailTemplateException('Template ID is required for update');
+        if (! $dto->id) {
+            throw new InvalidEmailTemplateException(__('Template ID is required for update'));
         }
 
         $validation = $this->emailTemplateService->validateTemplate($dto->subject, $dto->body);
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             $exception = new EmailTemplateValidationException('Template validation failed');
             $exception->validationErrors = $validation['errors'];
             throw $exception;
@@ -41,18 +42,24 @@ class UpdateEmailTemplateHandler
         $template = $this->emailTemplateRepository->findFirstWhere([
             'id' => $dto->id,
             'account_id' => $dto->account_id,
+            'event_id' => $dto->event_id,
+            'organizer_id' => $dto->organizer_id,
         ]);
 
-        if (!$template) {
-            throw new EmailTemplateNotFoundException('Email template not found');
+        if (! $template) {
+            throw new EmailTemplateNotFoundException(__('Email template not found'));
         }
 
-        return $this->emailTemplateRepository->updateFromArray($template->getId(), [
+        $updatedTemplate = $this->emailTemplateRepository->updateFromArray($template->getId(), [
             'subject' => $dto->subject,
             'body' => $this->purifier->purify($dto->body),
             'cta' => $dto->cta,
             'engine' => $dto->engine->value,
             'is_active' => $dto->is_active,
         ]);
+
+        $this->eventSpamCheckDispatchService->dispatchForEmailTemplate($template);
+
+        return $updatedTemplate;
     }
 }

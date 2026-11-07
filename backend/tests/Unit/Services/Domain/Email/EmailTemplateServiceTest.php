@@ -5,17 +5,23 @@ namespace Tests\Unit\Services\Domain\Email;
 use HiEvents\DomainObjects\EmailTemplateDomainObject;
 use HiEvents\DomainObjects\Enums\EmailTemplateType;
 use HiEvents\Repository\Interfaces\EmailTemplateRepositoryInterface;
+use HiEvents\Services\Domain\Email\EmailContextHtmlEscaper;
 use HiEvents\Services\Domain\Email\EmailTemplateService;
 use HiEvents\Services\Domain\Email\EmailTokenContextBuilder;
 use HiEvents\Services\Infrastructure\Email\LiquidTemplateRenderer;
-use Tests\TestCase;
+use HiEvents\Services\Infrastructure\HtmlPurifier\HtmlPurifierService;
+use HTMLPurifier;
 use Mockery;
+use Tests\TestCase;
 
 class EmailTemplateServiceTest extends TestCase
 {
     private EmailTemplateService $emailTemplateService;
+
     private EmailTemplateRepositoryInterface $mockRepository;
+
     private LiquidTemplateRenderer $mockLiquidRenderer;
+
     private EmailTokenContextBuilder $mockTokenBuilder;
 
     protected function setUp(): void
@@ -29,8 +35,97 @@ class EmailTemplateServiceTest extends TestCase
         $this->emailTemplateService = new EmailTemplateService(
             $this->mockRepository,
             $this->mockLiquidRenderer,
-            $this->mockTokenBuilder
+            $this->mockTokenBuilder,
+            new EmailContextHtmlEscaper,
+            new HtmlPurifierService(new HTMLPurifier),
         );
+    }
+
+    public function test_render_template_escapes_user_content_in_body_but_not_subject(): void
+    {
+        $service = new EmailTemplateService(
+            $this->mockRepository,
+            new LiquidTemplateRenderer,
+            $this->mockTokenBuilder,
+            new EmailContextHtmlEscaper,
+            new HtmlPurifierService(new HTMLPurifier),
+        );
+
+        $template = Mockery::mock(EmailTemplateDomainObject::class, [
+            'getSubject' => 'Order for {{ event.title }}',
+            'getBody' => 'Hi {{ order.first_name }}, welcome to {{ event.title }}',
+            'getCta' => null,
+        ]);
+
+        $result = $service->renderTemplate($template, [
+            'event' => ['title' => 'Rock & Roll <b>Night</b>'],
+            'order' => ['first_name' => '<img src=x onerror=alert(1)>'],
+        ]);
+
+        $this->assertSame(
+            'Hi &lt;img src=x onerror=alert(1)&gt;, welcome to Rock &amp; Roll &lt;b&gt;Night&lt;/b&gt;',
+            $result->body
+        );
+        $this->assertSame('Order for Rock & Roll <b>Night</b>', $result->subject);
+    }
+
+    public function test_markup_built_by_liquid_filters_is_purified_in_rendered_and_preview_bodies(): void
+    {
+        $service = new EmailTemplateService(
+            $this->mockRepository,
+            new LiquidTemplateRenderer,
+            $this->mockTokenBuilder,
+            new EmailContextHtmlEscaper,
+            new HtmlPurifierService(new HTMLPurifier),
+        );
+        $body = '<p>Hi {{ "%3Cimg src=x onerror=alert(1)%3E" | url_decode }}{{ "%3Csvg" | append: " onload=alert(2)%3E" | url_decode }}</p>';
+        $template = Mockery::mock(EmailTemplateDomainObject::class);
+        $template->shouldReceive('getSubject')->andReturn('Order');
+        $template->shouldReceive('getBody')->andReturn($body);
+        $template->shouldReceive('getCta')->andReturn(null);
+        $this->mockTokenBuilder->shouldReceive('buildPreviewContext')->andReturn([]);
+
+        $rendered = $service->renderTemplate($template, []);
+        $preview = $service->previewTemplate('Order', $body, EmailTemplateType::ORDER_CONFIRMATION);
+
+        foreach ([$rendered->body, $preview['body']] as $html) {
+            $this->assertStringNotContainsString('onerror', $html);
+            $this->assertStringNotContainsString('onload', $html);
+            $this->assertStringNotContainsString('<svg', $html);
+        }
+    }
+
+    public function test_render_template_keeps_purified_html_tokens_unescaped_in_body(): void
+    {
+        $service = new EmailTemplateService(
+            $this->mockRepository,
+            new LiquidTemplateRenderer,
+            $this->mockTokenBuilder,
+            new EmailContextHtmlEscaper,
+            new HtmlPurifierService(new HTMLPurifier),
+        );
+
+        $template = Mockery::mock(EmailTemplateDomainObject::class, [
+            'getSubject' => 'Your order',
+            'getBody' => '{{ settings.post_checkout_message }} {{ event.description }}',
+            'getCta' => null,
+        ]);
+
+        $result = $service->renderTemplate($template, [
+            'settings' => ['post_checkout_message' => '<strong>Thanks!</strong>'],
+            'event' => ['description' => '<p>Details</p>'],
+        ]);
+
+        $this->assertSame('<strong>Thanks!</strong> <p>Details</p>', $result->body);
+    }
+
+    public function test_the_default_order_confirmation_subject_does_not_call_an_unpaid_order_confirmed(): void
+    {
+        $subject = $this->emailTemplateService->getDefaultTemplate(EmailTemplateType::ORDER_CONFIRMATION)['subject'];
+        $renderer = new LiquidTemplateRenderer;
+
+        $this->assertSame('Order placed: payment needed', $renderer->render($subject, ['order' => ['is_awaiting_offline_payment' => true]]));
+        $this->assertSame('Your Order is Confirmed! 🎉', $renderer->render($subject, ['order' => ['is_awaiting_offline_payment' => false]]));
     }
 
     public function test_gets_event_level_template_when_exists(): void
@@ -48,18 +143,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ORDER_CONFIRMATION,
-                1, // accountId
-                1, // eventId
-                1  // organizerId
+                1,
+                1,
+                1
             )
             ->once()
             ->andReturn($eventTemplate);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ORDER_CONFIRMATION,
-            1, // accountId
-            1, // eventId
-            1  // organizerId
+            1,
+            1,
+            1
         );
 
         $this->assertSame($eventTemplate, $result);
@@ -80,18 +175,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ORDER_CONFIRMATION,
-                1, // accountId
-                1, // eventId
-                1  // organizerId
+                1,
+                1,
+                1
             )
             ->once()
             ->andReturn($organizerTemplate);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ORDER_CONFIRMATION,
-            1, // accountId
-            1, // eventId
-            1  // organizerId
+            1,
+            1,
+            1
         );
 
         $this->assertSame($organizerTemplate, $result);
@@ -103,18 +198,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ORDER_CONFIRMATION,
-                1, // accountId
-                1, // eventId
-                1  // organizerId
+                1,
+                1,
+                1
             )
             ->once()
             ->andReturn(null);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ORDER_CONFIRMATION,
-            1, // accountId
-            1, // eventId
-            1  // organizerId
+            1,
+            1,
+            1
         );
 
         $this->assertNull($result);
@@ -135,18 +230,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ATTENDEE_TICKET,
-                1, // accountId
-                null, // eventId
-                1  // organizerId
+                1,
+                null,
+                1
             )
             ->once()
             ->andReturn($organizerTemplate);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ATTENDEE_TICKET,
-            1, // accountId
-            null, // eventId
-            1  // organizerId
+            1,
+            null,
+            1
         );
 
         $this->assertSame($organizerTemplate, $result);
@@ -167,18 +262,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ORDER_CONFIRMATION,
-                1, // accountId
-                1, // eventId
-                1  // organizerId
+                1,
+                1,
+                1
             )
             ->once()
             ->andReturn($activeTemplate);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ORDER_CONFIRMATION,
-            1, // accountId
-            1, // eventId
-            1  // organizerId
+            1,
+            1,
+            1
         );
 
         $this->assertSame($activeTemplate, $result);
@@ -200,18 +295,18 @@ class EmailTemplateServiceTest extends TestCase
             ->shouldReceive('findByTypeWithFallback')
             ->with(
                 EmailTemplateType::ATTENDEE_TICKET,
-                1, // accountId
-                null, // eventId
-                1  // organizerId
+                1,
+                null,
+                1
             )
             ->once()
             ->andReturn($attendeeTicketTemplate);
 
         $result = $this->emailTemplateService->getTemplateByType(
             EmailTemplateType::ATTENDEE_TICKET,
-            1, // accountId
-            null, // eventId
-            1  // organizerId
+            1,
+            null,
+            1
         );
 
         $this->assertSame($attendeeTicketTemplate, $result);

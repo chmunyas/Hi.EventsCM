@@ -16,9 +16,7 @@ class CreateWaitlistEntryActionPublic extends BaseAction
 {
     public function __construct(
         private readonly CreateWaitlistEntryHandler $handler,
-    )
-    {
-    }
+    ) {}
 
     public function __invoke(CreateWaitlistEntryRequest $request, int $eventId): JsonResponse
     {
@@ -30,6 +28,8 @@ class CreateWaitlistEntryActionPublic extends BaseAction
                 first_name: $request->validated('first_name'),
                 last_name: $request->validated('last_name'),
                 locale: $request->input('locale', 'en'),
+                event_occurrence_id: $request->validated('event_occurrence_id'),
+                promo_code: $request->validated('promo_code'),
             ));
         } catch (ResourceConflictException $e) {
             return $this->errorResponse(

@@ -4,27 +4,53 @@ namespace HiEvents\Http\Request\EventSettings;
 
 use HiEvents\DomainObjects\Enums\AttendeeDetailsCollectionMethod;
 use HiEvents\DomainObjects\Enums\HomepageBackgroundType;
+use HiEvents\DomainObjects\Enums\HomepageFontFamily;
+use HiEvents\DomainObjects\Enums\HomepageLayout;
+use HiEvents\DomainObjects\Enums\HomepageSectionType;
 use HiEvents\DomainObjects\Enums\PaymentProviders;
+use HiEvents\DomainObjects\Enums\Permission;
 use HiEvents\DomainObjects\Enums\PriceDisplayMode;
+use HiEvents\DomainObjects\Enums\TicketDateDisplayMode;
+use HiEvents\DomainObjects\EventDomainObject;
 use HiEvents\Http\Request\BaseRequest;
+use HiEvents\Repository\Interfaces\EventRepositoryInterface;
+use HiEvents\Repository\Interfaces\EventSettingsRepositoryInterface;
+use HiEvents\Services\Domain\Auth\Access\AccountUserAccessService;
+use HiEvents\Services\Domain\Auth\AuthUserService;
+use HiEvents\Services\Infrastructure\HtmlPurifier\HtmlPurifierService;
+use HiEvents\Validators\Rules\HomepageSectionRules;
 use HiEvents\Validators\Rules\RulesHelper;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateEventSettingsRequest extends BaseRequest
 {
-    // @todo these should all be required for the update request. They should only be nullable for the PATCH request
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $refusal = $this->offlinePaymentInstructionsChangeRefusal();
+
+                if ($refusal !== null && $this->changesOfflinePaymentInstructions()) {
+                    $validator->errors()->add('offline_payment_instructions', $refusal);
+                }
+            },
+        ];
+    }
+
     public function rules(): array
     {
         return [
-            'post_checkout_message' => ['string', "nullable"],
-            'pre_checkout_message' => ['string', "nullable"],
-            'email_footer_message' => ['string', "nullable"],
+            'post_checkout_message' => ['string', 'nullable'],
+            'pre_checkout_message' => ['string', 'nullable'],
+            'email_footer_message' => ['string', 'nullable'],
 
             'continue_button_text' => ['string', 'nullable', 'max:100'],
+            'get_tickets_button_text' => ['string', 'nullable', 'max:100'],
             'support_email' => ['email', 'nullable'],
             'require_attendee_details' => ['boolean'],
             'attendee_details_collection_method' => [Rule::in(AttendeeDetailsCollectionMethod::valuesArray())],
-            'order_timeout_in_minutes' => ['numeric', "min:1", "max:120"],
+            'order_timeout_in_minutes' => ['numeric', 'min:1', 'max:120'],
 
             'homepage_background_color' => ['nullable', ...RulesHelper::HEX_COLOR],
             'homepage_primary_color' => ['nullable', ...RulesHelper::HEX_COLOR],
@@ -37,18 +63,6 @@ class UpdateEventSettingsRequest extends BaseRequest
             'website_url' => ['url', 'nullable'],
             'maps_url' => ['url', 'nullable'],
 
-            'location_details' => ['array'],
-            'location_details.venue_name' => ['string', 'max:255', 'nullable'],
-            'location_details.address_line_1' => ['required_with:location_details', 'string', 'max:255'],
-            'location_details.address_line_2' => ['string', 'max:255', 'nullable'],
-            'location_details.city' => ['required_with:location_details', 'string', 'max:85'],
-            'location_details.state_or_region' => ['string', 'max:85', 'nullable'],
-            'location_details.zip_or_postal_code' => ['required_with:location_details', 'string', 'max:85'],
-            'location_details.country' => ['required_with:location_details', 'string', 'max:2'],
-
-            'is_online_event' => ['boolean'],
-            'online_event_connection_details' => ['string', 'nullable'],
-
             'seo_title' => ['string', 'max:255', 'nullable'],
             'seo_description' => ['string', 'max:255', 'nullable'],
             'seo_keywords' => ['string', 'max:255', 'nullable'],
@@ -58,13 +72,15 @@ class UpdateEventSettingsRequest extends BaseRequest
 
             'price_display_mode' => [Rule::in(PriceDisplayMode::valuesArray())],
 
-            'hide_getting_started_page' => ['boolean'],
-
             // Payment settings
             'payment_providers' => ['array'],
             'payment_providers.*' => ['string', Rule::in(PaymentProviders::valuesArray())],
-            'offline_payment_instructions' => ['string', 'nullable', Rule::requiredIf(fn() => in_array(PaymentProviders::OFFLINE->name, $this->input('payment_providers', []), true))],
+            'offline_payment_instructions' => ['string', 'nullable', Rule::requiredIf(fn () => in_array(PaymentProviders::OFFLINE->name, $this->input('payment_providers', []), true))],
             'allow_orders_awaiting_offline_payment_to_check_in' => ['boolean'],
+            'offline_payment_reporting_enabled' => ['boolean'],
+            'offline_payment_order_reference_enabled' => ['boolean'],
+            'payment_links_enabled' => ['boolean'],
+            'payment_link_expiry_hours' => ['integer', 'min:1', 'max:720'],
 
             // Invoice settings
             'enable_invoicing' => ['boolean'],
@@ -84,10 +100,14 @@ class UpdateEventSettingsRequest extends BaseRequest
             'ticket_design_settings.logo_image_id' => ['nullable', 'integer'],
             'ticket_design_settings.footer_text' => ['nullable', 'string', 'max:500'],
             'ticket_design_settings.layout_type' => ['nullable', 'string', Rule::in(['default', 'modern'])],
+            'ticket_design_settings.date_display_mode' => ['nullable', 'string', Rule::in(TicketDateDisplayMode::valuesArray())],
             'ticket_design_settings.enabled' => ['boolean'],
 
             // Marketing settings
             'show_marketing_opt_in' => ['boolean'],
+
+            // Attendee detail copy control
+            'allow_copy_details_to_all_attendees' => ['boolean'],
 
             // Platform fee settings
             'pass_platform_fee_to_buyer' => ['boolean'],
@@ -98,9 +118,16 @@ class UpdateEventSettingsRequest extends BaseRequest
             'homepage_theme_settings.background' => ['nullable', 'string', ...RulesHelper::HEX_COLOR],
             'homepage_theme_settings.mode' => ['nullable', 'string', Rule::in(['light', 'dark'])],
             'homepage_theme_settings.background_type' => ['nullable', 'string', Rule::in(HomepageBackgroundType::valuesArray())],
+            'homepage_theme_settings.font_family' => ['nullable', 'string', Rule::in(HomepageFontFamily::valuesArray())],
+            'homepage_theme_settings.layout' => ['nullable', 'string', Rule::in(HomepageLayout::valuesArray())],
+            ...HomepageSectionRules::rules(HomepageSectionType::eventValues()),
 
             // Self-service settings
             'allow_attendee_self_edit' => ['boolean'],
+
+            // Occurrence display
+            'show_available_occurrence_capacity' => ['boolean'],
+            'hide_sold_out_occurrences' => ['boolean'],
 
             // Waitlist settings
             'waitlist_auto_process' => ['boolean'],
@@ -120,11 +147,6 @@ class UpdateEventSettingsRequest extends BaseRequest
             'homepage_link_color' => $colorMessage,
             'homepage_product_widget_background_color' => $colorMessage,
             'homepage_product_widget_text_color' => $colorMessage,
-            'location_details.address_line_1.required_with' => __('The address line 1 field is required'),
-            'location_details.city.required_with' => __('The city field is required'),
-            'location_details.zip_or_postal_code.required_with' => __('The zip or postal code field is required'),
-            'location_details.country.required_with' => __('The country field is required'),
-            'location_details.country.max' => __('The country field should be a 2 character ISO 3166 code'),
             'price_display_mode.in' => 'The price display mode must be either inclusive or exclusive.',
 
             // Payment messages
@@ -147,6 +169,68 @@ class UpdateEventSettingsRequest extends BaseRequest
             'homepage_theme_settings.background' => $colorMessage,
             'homepage_theme_settings.mode.in' => __('The mode must be light or dark.'),
             'homepage_theme_settings.background_type.in' => __('The background type must be COLOR or MIRROR_COVER_IMAGE.'),
+            'homepage_theme_settings.font_family.in' => __('The selected font is not supported.'),
+            'homepage_theme_settings.layout.in' => __('The selected layout is not supported.'),
+            ...HomepageSectionRules::messages(),
         ];
+    }
+
+    private function offlinePaymentInstructionsChangeRefusal(): ?string
+    {
+        if (app(AuthUserService::class)->isApiKeyRequest()) {
+            return __('Offline payment instructions can only be changed from the dashboard, not with an API key.');
+        }
+
+        if (app(AccountUserAccessService::class)->isWithheldFromCurrentUser(Permission::MANAGE_PAYMENTS)) {
+            return __('Only members who can manage payments can change the offline payment instructions.');
+        }
+
+        return null;
+    }
+
+    private function changesOfflinePaymentInstructions(): bool
+    {
+        if (! $this->isMethod('PUT') && ! $this->exists('offline_payment_instructions')) {
+            return false;
+        }
+
+        $submitted = $this->input('offline_payment_instructions');
+
+        if ($submitted !== null && ! is_string($submitted)) {
+            return false;
+        }
+
+        $event = $this->eventTheMemberCanEdit();
+
+        if ($event === null) {
+            return false;
+        }
+
+        $saved = trim((string) app(EventSettingsRepositoryInterface::class)
+            ->findFirstWhere(['event_id' => $event->getId()])
+            ?->getOfflinePaymentInstructions());
+
+        if (blank($submitted)) {
+            return $saved !== '';
+        }
+
+        $submitted = trim($submitted);
+
+        return $submitted !== $saved
+            && trim(app(HtmlPurifierService::class)->purify($submitted)) !== $saved;
+    }
+
+    private function eventTheMemberCanEdit(): ?EventDomainObject
+    {
+        $event = app(EventRepositoryInterface::class)->findFirstWhere([
+            'id' => (int) $this->route('event_id'),
+            'account_id' => app(AuthUserService::class)->getAuthenticatedAccountId(),
+        ]);
+
+        if ($event === null || ! app(AccountUserAccessService::class)->currentMemberCanAccessEvent($event)) {
+            return null;
+        }
+
+        return $event;
     }
 }

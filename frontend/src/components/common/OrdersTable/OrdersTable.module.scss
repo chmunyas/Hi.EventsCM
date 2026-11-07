@@ -110,6 +110,16 @@
   line-height: 1.3;
 }
 
+.occurrenceChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--mantine-primary-color-filled);
+  white-space: nowrap;
+}
+
 // Items Section
 .itemsBadge {
   display: inline-flex;
@@ -197,6 +207,11 @@
   &[data-status="AWAITING_OFFLINE_PAYMENT"] {
     background: var(--mantine-color-yellow-1);
     color: var(--mantine-color-yellow-9);
+  }
+
+  &[data-status="PAYMENT_REPORTED"] {
+    background: var(--mantine-color-teal-1);
+    color: var(--mantine-color-teal-9);
   }
 
   &[data-status="CANCELLED"] {

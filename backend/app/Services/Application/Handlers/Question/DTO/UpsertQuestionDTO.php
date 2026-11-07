@@ -9,16 +9,22 @@ use HiEvents\DomainObjects\Enums\QuestionTypeEnum;
 class UpsertQuestionDTO extends BaseDTO
 {
     public function __construct(
-        public string            $title,
-        public QuestionTypeEnum  $type,
-        public bool              $required,
-        public ?array            $options,
-        public int               $event_id,
-        public array             $product_ids,
-        public bool              $is_hidden,
+        public string $title,
+        public QuestionTypeEnum $type,
+        public bool $required,
+        public ?array $options,
+        public int $event_id,
+        public array $product_ids,
+        public bool $is_hidden,
         public QuestionBelongsTo $belongs_to,
-        public ?string           $description = null,
-    )
-    {
-    }
+        public ?string $description = null,
+        public bool $applies_to_all_tickets = false,
+        public ?int $condition_question_id = null,
+        public ?array $condition_values = null,
+        public bool $condition_provided = false,
+        public ?array $disqualifying_options = null,
+        public ?string $disqualification_message = null,
+        public bool $disqualification_provided = false,
+        public array $option_renames = [],
+    ) {}
 }

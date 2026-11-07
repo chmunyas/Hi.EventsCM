@@ -1,5 +1,7 @@
 import {PageBody} from "../../../common/PageBody";
+import {useAccess} from "../../../../hooks/useAccess.ts";
 import {EventDetailsForm} from "./Sections/EventDetailsForm";
+import {EventTypeSettings} from "./Sections/EventTypeSettings";
 import {LocationSettings} from "./Sections/LocationSettings";
 import {HomepageAndCheckoutSettings} from "./Sections/HomepageAndCheckoutSettings";
 import {EmailSettings} from "./Sections/EmailSettings";
@@ -13,12 +15,14 @@ import {
     IconAlertTriangle,
     IconAt,
     IconBrandGoogleAnalytics,
+    IconCalendarRepeat,
     IconBuildingStore,
     IconCreditCard,
     IconHome,
     IconListCheck,
     IconMapPin,
     IconPercentage,
+    IconRepeat,
 } from "@tabler/icons-react";
 import {useMediaQuery} from "@mantine/hooks";
 import {useEffect, useMemo, useState} from "react";
@@ -26,12 +30,20 @@ import {Card} from "../../../common/Card";
 import {PaymentAndInvoicingSettings} from "./Sections/PaymentSettings";
 import {PlatformFeesSettings} from "./Sections/PlatformFeesSettings";
 import {WaitlistSettings} from "./Sections/WaitlistSettings";
+import {RecurringEventSettings} from "./Sections/RecurringEventSettings";
 import {DangerZoneSettings} from "./Sections/DangerZoneSettings";
 import {useGetAccount} from "../../../../queries/useGetAccount.ts";
+import {useGetEvent} from "../../../../queries/useGetEvent.ts";
+import {useParams} from "react-router";
+import {EventType} from "../../../../types.ts";
 
 export const Settings = () => {
     const {data: account} = useGetAccount();
     const isSaasMode = account?.is_saas_mode_enabled;
+    const {eventId} = useParams();
+    const {data: event} = useGetEvent(eventId);
+    const isRecurring = event?.type === EventType.RECURRING;
+    const canViewFinancials = useAccess().can('VIEW_FINANCIALS');
 
     const SECTIONS = useMemo(() => {
         const baseSections = [
@@ -40,6 +52,12 @@ export const Settings = () => {
                 label: t`Event Details`,
                 icon: IconBuildingStore,
                 component: EventDetailsForm
+            },
+            {
+                id: 'event-type',
+                label: t`Event Type`,
+                icon: IconCalendarRepeat,
+                component: EventTypeSettings
             },
             {
                 id: 'location-settings',
@@ -53,6 +71,12 @@ export const Settings = () => {
                 icon: IconHome,
                 component: HomepageAndCheckoutSettings
             },
+            ...(isRecurring ? [{
+                id: 'recurring-event-settings',
+                label: t`Recurring Event`,
+                icon: IconRepeat,
+                component: RecurringEventSettings,
+            }] : []),
             {
                 id: 'seo-settings',
                 label: t`SEO`,
@@ -92,7 +116,7 @@ export const Settings = () => {
             }
         ];
 
-        if (isSaasMode) {
+        if (isSaasMode && canViewFinancials) {
             baseSections.splice(baseSections.length - 1, 0, {
                 id: 'platform-fees',
                 label: t`Platform Fees`,
@@ -102,7 +126,7 @@ export const Settings = () => {
         }
 
         return baseSections;
-    }, [isSaasMode]);
+    }, [isSaasMode, isRecurring, canViewFinancials]);
 
     const isLargeScreen = useMediaQuery('(min-width: 1200px)', true);
     const [activeSection, setActiveSection] = useState(() => {

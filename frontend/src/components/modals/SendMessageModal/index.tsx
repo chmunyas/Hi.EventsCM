@@ -1,5 +1,5 @@
-import {Event, GenericModalProps, IdParam, MessageType, ProductType} from "../../../types.ts";
-import {useParams} from "react-router";
+import {Event, EventOccurrence, EventType, GenericModalProps, IdParam, MessageType, ProductType, QueryFilters} from "../../../types.ts";
+import {NavLink, useParams} from "react-router";
 import {useGetEvent} from "../../../queries/useGetEvent.ts";
 import {useGetOrder} from "../../../queries/useGetOrder.ts";
 import {Modal} from "../../common/Modal";
@@ -7,24 +7,27 @@ import {
     Alert,
     Button,
     Checkbox,
+    ComboboxItem,
     ComboboxItemGroup,
     Group,
     LoadingOverlay,
     Menu,
     MultiSelect,
     Select,
+    Text,
     TextInput
 } from "@mantine/core";
 import {
     IconAlertCircle,
+    IconBrandStripe,
     IconCheck,
     IconChevronDown,
     IconClock,
     IconCopy,
-    IconInfoCircle,
     IconSend,
     IconTestPipe
 } from "@tabler/icons-react";
+import {Callout} from "../../common/Callout";
 import {useGetMe} from "../../../queries/useGetMe.ts";
 import {useForm, UseFormReturnType} from "@mantine/form";
 import {useFormErrorResponseHandler} from "../../../hooks/useFormErrorResponseHandler.tsx";
@@ -33,19 +36,24 @@ import {t} from "@lingui/macro";
 import {Editor} from "../../common/Editor";
 import {useSendEventMessage} from "../../../mutations/useSendEventMessage.ts";
 import {ProductSelector} from "../../common/ProductSelector";
-import {useEffect, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 import {useGetAccount} from "../../../queries/useGetAccount.ts";
-import {StripeConnectButton} from "../../common/StripeConnectButton";
 import {getConfig} from "../../../utilites/config";
-import {utcToTz} from "../../../utilites/dates.ts";
+import {utcToTz, prettyDate} from "../../../utilites/dates.ts";
+import {useGetEventOccurrences} from "../../../queries/useGetEventOccurrences.ts";
 import dayjs from "dayjs";
 import classes from "./SendMessageModal.module.scss";
+import {DateTimeField} from "../../common/DateTimeField";
 
 interface EventMessageModalProps extends GenericModalProps {
     orderId?: IdParam,
     productId?: IdParam,
-    messageType: MessageType,
+    messageType?: MessageType,
     attendeeId?: IdParam,
+    eventOccurrenceId?: IdParam,
+    eventOccurrenceIds?: IdParam[],
+    initialSubject?: string,
+    initialMessage?: string,
 }
 
 const OrderField = ({orderId, eventId}: { orderId: IdParam, eventId: IdParam }) => {
@@ -59,7 +67,9 @@ const OrderField = ({orderId, eventId}: { orderId: IdParam, eventId: IdParam }) 
         <TextInput
             label={t`Recipient`}
             disabled
-            placeholder={`${order.first_name} ${order.last_name} <${order.email}>`}
+            placeholder={order.email
+                ? `${order.first_name} ${order.last_name} <${order.email}>`
+                : `${order.first_name} ${order.last_name}`}
         />
     )
 }
@@ -77,7 +87,7 @@ const AttendeeField = ({orderId, eventId, attendeeId, form}: {
         return null;
     }
 
-    const groups: ComboboxItemGroup[] = products.map(product => {
+    const groups: ComboboxItemGroup<ComboboxItem>[] = products.map(product => {
         return {
             group: product.title,
             items: order.attendees?.filter(a => a.product_id === product.id).map(attendee => {
@@ -101,10 +111,12 @@ const AttendeeField = ({orderId, eventId, attendeeId, form}: {
 
 const CUSTOM_PRESET = 'custom';
 
-const getSchedulePresets = (event: Event) => {
+const getSchedulePresets = (event: Event, occurrence?: EventOccurrence) => {
     const now = dayjs.utc();
-    const startDate = dayjs.utc(event.start_date);
-    const endDate = event.end_date ? dayjs.utc(event.end_date) : null;
+    const startDate = occurrence ? dayjs.utc(occurrence.start_date) : dayjs.utc(event.start_date);
+    const endDate = occurrence?.end_date
+        ? dayjs.utc(occurrence.end_date)
+        : event.end_date ? dayjs.utc(event.end_date) : null;
 
     const presets: { value: string; label: string; utcDate: dayjs.Dayjs }[] = [
         {value: '1_week_before', label: t`1 week before event`, utcDate: startDate.subtract(1, 'week')},
@@ -125,9 +137,39 @@ const getSchedulePresets = (event: Event) => {
 };
 
 export const SendMessageModal = (props: EventMessageModalProps) => {
-    const {onClose, orderId, productId, messageType, attendeeId} = props;
+    const {
+        onClose, orderId, productId, messageType, attendeeId,
+        eventOccurrenceId: rawEventOccurrenceId, eventOccurrenceIds,
+        initialSubject, initialMessage,
+    } = props;
+    const isMultiOccurrence = !!eventOccurrenceIds && eventOccurrenceIds.length > 1;
+    const eventOccurrenceId = rawEventOccurrenceId
+        ?? (eventOccurrenceIds?.length === 1 ? eventOccurrenceIds[0] : undefined);
     const {eventId} = useParams();
     const {data: event, data: {product_categories} = {}} = useGetEvent(eventId);
+    const isRecurring = event?.type === EventType.RECURRING;
+    const {data: occurrencesData} = useGetEventOccurrences(
+        eventId,
+        {pageNumber: 1, perPage: 100} as QueryFilters,
+    );
+    const occurrenceOptions = useMemo(() => {
+        if (!isRecurring || !occurrencesData?.data) return [];
+        return occurrencesData.data
+            .filter(occ => occ.status !== 'CANCELLED')
+            .map(occ => ({
+                label: prettyDate(occ.start_date, event?.timezone || 'UTC')
+                    + (occ.label ? ` (${occ.label})` : ''),
+                value: String(occ.id),
+            }));
+    }, [isRecurring, occurrencesData, event?.timezone]);
+
+    const targetedOccurrences = useMemo(() => {
+        if (!isMultiOccurrence || !occurrencesData?.data || !eventOccurrenceIds) return [];
+        const ids = new Set(eventOccurrenceIds.map(id => Number(id)));
+        return occurrencesData.data
+            .filter(occ => ids.has(Number(occ.id)))
+            .sort((a, b) => a.start_date.localeCompare(b.start_date));
+    }, [isMultiOccurrence, eventOccurrenceIds, occurrencesData]);
     const {data: me} = useGetMe();
     const errorHandler = useFormErrorResponseHandler();
     const isPreselectedRecipient = !!(orderId || attendeeId || productId);
@@ -140,20 +182,13 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
     const [isScheduled, setIsScheduled] = useState(false);
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
-    const presets = useMemo(() => event ? getSchedulePresets(event) : [], [event]);
-
-    const resolvedPreset = useMemo(() => {
-        if (!selectedPreset || selectedPreset === CUSTOM_PRESET) return null;
-        return presets.find(p => p.value === selectedPreset) ?? null;
-    }, [selectedPreset, presets]);
-
     const sendMessageMutation = useSendEventMessage();
 
     const form = useForm({
         initialValues: {
-            subject: '',
-            message: '',
-            message_type: messageType,
+            subject: initialSubject ?? '',
+            message: initialMessage ?? '',
+            message_type: (messageType ?? null) as MessageType | null,
             attendee_ids: attendeeId ? [String(attendeeId)] : [],
             product_ids: productId ? [String(productId)] : [],
             order_id: orderId,
@@ -163,11 +198,16 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
             acknowledgement: false,
             order_statuses: ['COMPLETED'],
             scheduled_at: '',
+            event_occurrence_id: eventOccurrenceId ? Number(eventOccurrenceId) : null as number | null,
+            event_occurrence_ids: isMultiOccurrence
+                ? eventOccurrenceIds!.map(id => Number(id))
+                : null as number[] | null,
         },
         validate: {
             acknowledgement: (value) => value === true ? null : t`You must acknowledge that this email is not promotional`,
-            scheduled_at: (value) => {
-                if (!isScheduled) return null;
+            message_type: (value) => value ? null : t`Choose who should receive this message`,
+            scheduled_at: (value, values) => {
+                if (!isScheduled || values.is_test) return null;
                 if (selectedPreset && selectedPreset !== CUSTOM_PRESET) return null;
                 if (!value) return t`The scheduled time is required`;
                 if (event && dayjs.tz(value, event.timezone).isBefore(dayjs())) return t`The scheduled time must be in the future`;
@@ -176,10 +216,24 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
         }
     });
 
+    const selectedOccurrence = useMemo<EventOccurrence | undefined>(() => {
+        if (!form.values.event_occurrence_id || !occurrencesData?.data) return undefined;
+        return occurrencesData.data.find(occ => occ.id === form.values.event_occurrence_id);
+    }, [form.values.event_occurrence_id, occurrencesData]);
+
+    const presets = useMemo(() => event ? getSchedulePresets(event, selectedOccurrence) : [], [event, selectedOccurrence]);
+
+    const resolvedPreset = useMemo(() => {
+        if (!selectedPreset || selectedPreset === CUSTOM_PRESET) return null;
+        return presets.find(p => p.value === selectedPreset) ?? null;
+    }, [selectedPreset, presets]);
+
+    const willSchedule = isScheduled && !form.values.is_test;
+
     const handleSend = (values: any) => {
         setTierLimitError(null);
         const submitData = {...values};
-        if (isScheduled) {
+        if (willSchedule) {
             if (selectedPreset && selectedPreset !== CUSTOM_PRESET && resolvedPreset && event) {
                 submitData.scheduled_at = resolvedPreset.utcDate.tz(event.timezone).format('YYYY-MM-DDTHH:mm');
             }
@@ -191,7 +245,11 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
             messageData: submitData,
         }, {
             onSuccess: () => {
-                showSuccess(isScheduled ? t`Message Scheduled` : t`Message Sent`);
+                if (values.is_test) {
+                    showSuccess(t`Test email sent to your inbox`);
+                } else {
+                    showSuccess(willSchedule ? t`Message Scheduled` : t`Message Sent`);
+                }
                 form.reset();
                 onClose();
             },
@@ -205,10 +263,6 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
             }
         });
     }
-
-    useEffect(() => {
-        form.setFieldValue('product_ids', []);
-    }, [form.values.message_type]);
 
     if (!event || !me || !product_categories) {
         return <LoadingOverlay visible/>;
@@ -229,21 +283,29 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
 
             <form onSubmit={form.onSubmit(handleSend)}>
                 {(!isAccountVerified && isAccountFetched) && (
-                    <Alert className={classes.verificationAlert} variant={'light'}
-                           icon={<IconAlertCircle size="1rem"/>}>
+                    <Callout variant="info" className={classes.verificationAlert}>
                         {t`You need to verify your account email before you can send messages.`}
-                    </Alert>
+                    </Callout>
                 )}
 
                 {accountRequiresManualVerification && (
-                    <Alert className={classes.verificationAlert} variant={'light'} icon={<IconAlertCircle size="1rem"/>}
-                           title={t`Connect Stripe to enable messaging`}>
+                    <Callout variant="info" className={classes.verificationAlert}
+                             title={t`Connect Stripe to enable messaging`}>
                         {t`Due to the high risk of spam, you must connect a Stripe account before you can send messages to attendees.
                          This is to ensure that all event organizers are verified and accountable.`}
-                        <div className={classes.stripeConnectButton}>
-                            <StripeConnectButton/>
-                        </div>
-                    </Alert>
+                        {event?.organizer_id && (
+                            <div className={classes.stripeConnectButton}>
+                                <Button
+                                    component={NavLink}
+                                    to={`/manage/organizer/${event.organizer_id}/settings#payouts`}
+                                    leftSection={<IconBrandStripe size={16}/>}
+                                    variant="light"
+                                >
+                                    {t`Connect Stripe`}
+                                </Button>
+                            </div>
+                        )}
+                    </Callout>
                 )}
 
                 {tierLimitError && (
@@ -264,20 +326,51 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                 )}
 
                 {!formIsDisabled && !tierLimitError && supportEmail && (
-                    <Alert
-                        variant="light"
-                        color="blue"
-                        icon={<IconInfoCircle size="1rem"/>}
-                        mb="md"
-                    >
+                    <Callout variant="info">
                         {t`Your account has messaging limits. To increase your limits, contact us at`}{' '}
                         <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-                    </Alert>
+                    </Callout>
                 )}
 
                 {!formIsDisabled && (
                     <fieldset disabled={formIsDisabled} style={{border: 'none', padding: 0, margin: 0}}>
                         <div className={classes.formSection}>
+                            {isMultiOccurrence && (
+                                <Callout variant="info">
+                                    <Text size="sm" fw={500} mb={targetedOccurrences.length ? 'xs' : 0}>
+                                        {t`Targeting attendees across ${eventOccurrenceIds!.length} selected sessions.`}
+                                    </Text>
+                                    {targetedOccurrences.length > 0 && (
+                                        <div className={classes.occurrenceList}>
+                                            {targetedOccurrences.map(occ => (
+                                                <div key={occ.id} className={classes.occurrenceChip}>
+                                                    {prettyDate(occ.start_date, event?.timezone || 'UTC')}
+                                                    {occ.label && <span className={classes.occurrenceChipLabel}> · {occ.label}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {eventOccurrenceIds!.length > targetedOccurrences.length && (
+                                        <Text size="xs" c="dimmed" mt="xs">
+                                            {t`Showing the first ${targetedOccurrences.length} — the remaining ${eventOccurrenceIds!.length - targetedOccurrences.length} session(s) will still be targeted when the message is sent.`}
+                                        </Text>
+                                    )}
+                                </Callout>
+                            )}
+
+                            {isRecurring && !isPreselectedRecipient && !isMultiOccurrence && occurrenceOptions.length > 0 && (
+                                <Select
+                                    label={t`Occurrence`}
+                                    description={t`Send to all occurrences, or choose a specific one`}
+                                    placeholder={t`All occurrences`}
+                                    data={occurrenceOptions}
+                                    value={form.values.event_occurrence_id ? String(form.values.event_occurrence_id) : null}
+                                    onChange={(val) => form.setFieldValue('event_occurrence_id', val ? Number(val) : null)}
+                                    clearable={!eventOccurrenceId}
+                                    disabled={!!eventOccurrenceId}
+                                />
+                            )}
+
                             {!isPreselectedRecipient && (
                                 <Select
                                     data={[
@@ -287,7 +380,11 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                                         },
                                         {
                                             value: 'ALL_ATTENDEES',
-                                            label: t`All attendees of this event`,
+                                            label: isMultiOccurrence
+                                                ? t`All attendees of the selected sessions`
+                                                : form.values.event_occurrence_id
+                                                    ? t`All attendees of this occurrence`
+                                                    : t`All attendees of this event`,
                                         },
                                         {
                                             value: 'ORDER_OWNERS_WITH_PRODUCT',
@@ -297,7 +394,12 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                                     label={t`Recipients`}
                                     description={t`Select which attendees should receive this message`}
                                     placeholder={t`Select attendee group`}
+                                    withAsterisk
                                     {...form.getInputProps('message_type')}
+                                    onChange={(value) => {
+                                        form.setFieldValue('message_type', value as MessageType | null);
+                                        form.setFieldValue('product_ids', []);
+                                    }}
                                 />
                             )}
 
@@ -406,11 +508,10 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                                             </button>
                                         </div>
                                         {selectedPreset === CUSTOM_PRESET && (
-                                            <TextInput
-                                                type="datetime-local"
+                                            <DateTimeField
                                                 label={t`Scheduled time`}
                                                 description={event.timezone}
-                                                min={utcToTz(dayjs.utc().toISOString(), event.timezone)}
+                                                minDate={utcToTz(dayjs.utc().toISOString(), event.timezone)}
                                                 {...form.getInputProps('scheduled_at')}
                                             />
                                         )}
@@ -444,10 +545,11 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                                     className={classes.sendButton}
                                     loading={sendMessageMutation.isPending}
                                     type={'submit'}
-                                    leftSection={isScheduled ? <IconClock size={16}/> : <IconSend size={16}/>}
+                                    leftSection={willSchedule ? <IconClock size={16}/> : <IconSend size={16}/>}
                                     disabled={!form.values.acknowledgement || !isAccountVerified || accountRequiresManualVerification}
+                                    data-testid="message-send-button"
                                 >
-                                    {isScheduled ? t`Schedule Message` : (form.values.is_test ? t`Send Test` : t`Send Message`)}
+                                    {form.values.is_test ? t`Send Test` : (willSchedule ? t`Schedule Message` : t`Send Message`)}
                                 </Button>
                                 <Menu shadow="md" width={220} position="bottom-end">
                                     <Menu.Target>
@@ -455,6 +557,7 @@ export const SendMessageModal = (props: EventMessageModalProps) => {
                                             type="button"
                                             className={classes.menuButton}
                                             disabled={!form.values.acknowledgement || !isAccountVerified || accountRequiresManualVerification}
+                                            data-testid="message-send-options-button"
                                         >
                                             <IconChevronDown size={16}/>
                                         </Button>

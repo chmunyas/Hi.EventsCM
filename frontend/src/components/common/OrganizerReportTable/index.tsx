@@ -1,6 +1,6 @@
-import {Button, ComboboxItem, Group, Select, Skeleton, Table as MantineTable, Text} from '@mantine/core';
+import {Button, Group, Select, Skeleton, Table as MantineTable, Text} from '@mantine/core';
 import {t} from '@lingui/macro';
-import {DatePickerInput} from "@mantine/dates";
+import {DatePickerInput, DatesRangeValue} from "@mantine/dates";
 import {IconArrowDown, IconArrowsSort, IconArrowUp, IconCalendar, IconDownload} from "@tabler/icons-react";
 import {useMemo, useState} from "react";
 import {PageTitle} from "../PageTitle";
@@ -14,6 +14,7 @@ import {organizerClient} from "../../../api/organizer.client.ts";
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import {instantRangeToWallDates, wallDateInTimezone, wallDateRangeToInstants} from "../../../utilites/dates.ts";
 import classes from './OrganizerReportTable.module.scss';
 import {downloadBinary} from "../../../utilites/download.ts";
 import {showError, showSuccess} from "../../../utilites/notifications.tsx";
@@ -48,7 +49,7 @@ interface OrganizerReportProps<T> {
     eventId?: number | null;
 }
 
-const TIME_PERIODS = [
+const getTimePeriods = () => [
     {value: '24h', label: t`Last 24 hours`},
     {value: '48h', label: t`Last 48 hours`},
     {value: '7d', label: t`Last 7 days`},
@@ -151,7 +152,7 @@ const OrganizerReportTable = <T extends Record<string, any>>({
         return [start.toDate(), end.toDate()];
     };
 
-    const handlePeriodChange = (value: string | null, _: ComboboxItem) => {
+    const handlePeriodChange = (value: string | null) => {
         if (!value) return;
         setSelectedPeriod(value);
         const newRange = calculateDateRange(value);
@@ -160,15 +161,8 @@ const OrganizerReportTable = <T extends Record<string, any>>({
         onDateRangeChange?.(newRange);
     };
 
-    const handleDateRangeChange = (newRange: [Date | null, Date | null]) => {
-        const [start, end] = newRange;
-        const tzStart = start ? dayjs(start).tz(tz) : null;
-        const tzEnd = end ? dayjs(end).tz(tz) : null;
-
-        const tzRange: [Date | null, Date | null] = [
-            tzStart?.toDate() || null,
-            tzEnd?.toDate() || null
-        ];
+    const handleDateRangeChange = (newRange: DatesRangeValue<string>) => {
+        const tzRange = wallDateRangeToInstants(newRange, tz);
 
         setDateRange(tzRange);
         setCurrentPage(1);
@@ -265,6 +259,17 @@ const OrganizerReportTable = <T extends Record<string, any>>({
             return wrapper(t`Loading...`);
         }
 
+        if (reportQuery.isError) {
+            return wrapper(
+                <Group justify="center" gap="sm">
+                    <Text size="sm">{t`Couldn't load this report`}</Text>
+                    <Button variant="default" size="xs" loading={reportQuery.isFetching} onClick={() => reportQuery.refetch()}>
+                        {t`Try again`}
+                    </Button>
+                </Group>
+            );
+        }
+
         if (showDateFilter && (!dateRange[0] || !dateRange[1])) {
             return wrapper(t`Please select a date range`);
         }
@@ -315,7 +320,7 @@ const OrganizerReportTable = <T extends Record<string, any>>({
                         <Select
                             style={{minWidth: '200px'}}
                             placeholder={t`Select time period`}
-                            data={TIME_PERIODS}
+                            data={getTimePeriods()}
                             value={selectedPeriod}
                             onChange={handlePeriodChange}
                             leftSection={<IconCalendar stroke={1.5} size={20}/>}
@@ -329,10 +334,10 @@ const OrganizerReportTable = <T extends Record<string, any>>({
                             leftSection={<IconCalendar stroke={1.5} size={20}/>}
                             type="range"
                             placeholder="Pick dates range"
-                            value={dateRange}
+                            value={instantRangeToWallDates(dateRange, tz)}
                             onChange={handleDateRangeChange}
-                            minDate={dayjs().subtract(1, 'year').tz(tz).toDate()}
-                            maxDate={dayjs().tz(tz).toDate()}
+                            minDate={wallDateInTimezone(dayjs().subtract(1, 'year').toDate(), tz)}
+                            maxDate={wallDateInTimezone(new Date(), tz)}
                             className={classes.datePicker}
                         />
                     )}

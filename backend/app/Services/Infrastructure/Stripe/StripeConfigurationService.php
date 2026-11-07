@@ -27,23 +27,25 @@ class StripeConfigurationService
     public function getPrimaryPlatform(): ?StripePlatform
     {
         $platformString = config('services.stripe.primary_platform');
+
         return StripePlatform::fromString($platformString);
     }
 
     public function getAllWebhookSecrets(): array
     {
-        $secrets =  array_filter([
+        $secrets = array_filter([
             'default' => config('services.stripe.webhook_secret'),
             StripePlatform::CANADA->value => config('services.stripe.ca_webhook_secret'),
             StripePlatform::IRELAND->value => config('services.stripe.ie_webhook_secret'),
+            'billing' => config('services.stripe.billing_webhook_secret'),
         ]);
 
-        // order by primary platform first
         $primary = $this->getPrimaryPlatform()?->value;
 
         if ($primary && isset($secrets[$primary])) {
             $primarySecret = [$primary => $secrets[$primary]];
             unset($secrets[$primary]);
+
             return $primarySecret + $secrets;
         }
 
